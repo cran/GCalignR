@@ -1,0 +1,24 @@
+#' Gas-chromatography data for Antarctic Fur Seals (\emph{Arctocephalus gazella})
+#'
+#' @description
+#' This is an example of a typical gas-chromatography output file, listing a number of peaks with their
+#' respective retention times and abundance measures. Peaks were detected using Xcalibur 2.0.5 (Thermo Fisher Scientific).
+#' The data consists of 41 mother-pup pairs of two different colonies from Bird Island, South Georgia. In addition two blanks (i.e. negative controls) are included.
+#'
+#' @format
+#' A \code{list} of \code{data.frame}'s. Each \code{data.frame} contains gas-chromatography peak data of a single sample.
+#' The variables within each \code{data.frame} are: "time" (peak retention time) and "area" (integral of the peak curve).
+#' Each list element i.e. each \code{data.frame}is named with the unique sample ID.
+#'
+#' @source
+#' http://www.pnas.org/content/suppl/2015/08/05/1506076112.DCSupplemental/pnas.1506076112.sd02.xlsx
+#'
+#' @references
+#' Stoffel, M.A.; Caspers, B.A.; Forcada, J.; Giannakara, A.; Baier, M.; Eberhart-Phillips, L.; Mueller, C.; Hoffman, J.I. (2015): Chemical fingerprints encode mother-offspring similarity, colony membership, relatedness, and genetic quality in fur seals. In: Proceedings of the National Academy of Sciences of the United States of America 112 (36), S. E5005-12. DOI: 10.1073/pnas.1506076112.
+
+#'
+#' @keywords datasets
+#' @name peak_data
+#'
+#' @docType data
+NULL
