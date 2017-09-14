@@ -1,34 +1,26 @@
 #' Check input prior to processing in GCalignR
 #'
 #'@description
-#' Checks formatting of GCalignR input data for some of the main errors. Data is accepted in
-#' form of the path to a text file (i.e. "data.txt") or a list of data frames.
-#' See \code{\link{align_chromatograms}} for details.
+#' Checks input files for common formatting problems.
 #'
 #' @details
 #' Sample names should contain just letters, numbers and underscores and no whitespaces.
 #' Each sample has to contain the same number of columns, one of which is the retention
-#' time and the others are the other variables. All values should be numeric, i.e. they
-#' are allowed to contain numbers from 0-9 and "." as the only decimal character. Have a look
-#' at the vignettes for examples.
-#'
-#'@param data
-#' Path to a data file or the name of a list in the global environment.
+#' time and the others are arbitrary variables in consistent order across samples. Retention times are expected to be numeric, i.e. they are only allowed to contain numbers from 0-9 and "." as the only decimal character. Have a look at the vignettes for examples.
 #'
 #'@param plot
-#' Logical, if TRUE the distribution of peak numbers is plotted. By default no plot is returned.
+#' Boolean specifying if the distribution of peak numbers is plotted.
 #'
 #'@inheritParams align_chromatograms
 #'
 #'@param ...
-#'optional arguments passed to methods, see \code{\link[graphics]{barplot}}. Reguires \code{plot == TRUE}.
+#'optional arguments passed to methods, see \code{\link[graphics]{barplot}}.
+#'
+#'@param message
+#'Boolean determining if passing all checks is indicated by a message.
 #'
 #'@author Martin Stoffel (martin.adam.stoffel@@gmail.com) & Meinolf Ottensmann
 #'  (meinolf.ottensmann@@web.de)
-#'
-#'
-#'@return
-#' If \code{plot = TRUE} a data frame containing sample names and the corresponding number of peaks is returned
 #'
 #' @examples
 #' ## gc-data
@@ -40,7 +32,7 @@
 #'
 #' @export
 #'
-check_input <- function(data,plot = FALSE, sep = "\t", ...) {
+check_input <- function(data,plot = FALSE, sep = "\t", message = TRUE, ...) {
 
     # Preallocate a flag for passing the test. Every severe issues sets pass to FALSE
     pass = TRUE
@@ -70,10 +62,20 @@ check_input <- function(data,plot = FALSE, sep = "\t", ...) {
             stop(print(paste(rt_col_name,"is not a valid variable name. Data contains:",paste(col_names,collapse = " & "))))
         pass <- FALSE
         }
+        # check conc_col_name
+        if ("conc_col_name" %in% names(opt)) {
+            conc_col_name <- opt[["conc_col_name"]]
+            if (!(conc_col_name %in% col_names)) {
+                stop(print(paste(conc_col_name,"is not a valid variable name. Data contains:",paste(col_names, collapse = " & "))))
+                pass <- FALSE
+            }
+        }
         }
         ind_names <- stringr::str_trim(ind_names)
         ## Get Peak Data
         gc_data <- utils::read.table(data, skip = 2, sep = sep, stringsAsFactors = F)
+        col_class <- as.factor(unlist(lapply(lapply(X = 1:ncol(gc_data), function(x) as.vector(gc_data[,x])), class)))
+        if (any(!(col_class %in% c("numeric", "integer")))) stop(paste0("Only numeric & integer values are supported! Column(s)",paste(as.character(which(col_class == "character")), collapse = "; ")," violate the requirements. Fix to proceed." ))
         ## Check that all values are numeric, SKIPPED
         # x <- as.vector(unlist(gc_data))
         # na <- length(x[is.na(x)])
@@ -113,6 +115,21 @@ check_input <- function(data,plot = FALSE, sep = "\t", ...) {
             warning("Every Sample has to be a data.frame")
         }
 
+        # check class of columns
+        min_n <- min(as.vector(unlist(lapply(data, nrow))))
+        data2 <- lapply(data, function(x) x[1:min_n,])
+        temp <- do.call("cbind", data2)
+        if (!(any(apply(temp, 2, class) %in% c("numeric","integer")))) {
+            na_1 <- length(which(is.na(temp)))
+            data <- lapply(data, function(x) as.data.frame(apply(x, 2, as.numeric)))
+            data2 <- lapply(data, function(x) x[1:min_n,])
+            na_2 <- length(which(is.na(do.call("cbind", data2))))
+            if (na_2 > na_1) {
+                pass <- FALSE
+                warning("All columns need to contain only numericals or integers. NAs introduced by coercion")
+            }
+        }
+
         ## Adjust sizes of data frames, each has the same number of rows
         data <- lapply(data,matrix_append,gc_peak_list = data, val = "NA")
         if ((is.null(names(data)))) {
@@ -145,11 +162,21 @@ if (!is.numeric(df)) stop("Not all retention times are numeric. Make sure to use
             pass <- FALSE
             warning("Names in write_output have to be included as a variable in the data!")
         }
-            }
-    if (any(stringr::str_detect(string = ind_names, pattern = " "))) warning("Avoid whitespaces in Sample Names!")
-    if (any(stringr::str_detect(string = ind_names, pattern = "[^a-zA-Z\\d\\_]"))) warning("Sample Names should only contain Letters, Numbers and '_' ")
-    if (any(stringr::str_detect(string = col_names, pattern = " "))) warning("Avoid whitespaces in Variable Names!")
-    if (any(stringr::str_detect(string = col_names, pattern = "[^a-zA-Z\\d\\_]"))) warning("Variable Names should only contain Letters, Numbers and '_' ")
+        }
+    ## Lines checking for whitespaces are redundant!
+
+    # if (any(stringr::str_detect(string = ind_names, pattern = " "))) warning("Avoid whitespaces in Sample Names!")
+
+    # Check for proper individual names
+    if (any(stringr::str_detect(string = ind_names, pattern = "[^a-zA-Z\\d\\_]"))) {
+        warning("Avoid whitespaces in sample names! Additionally they should only contain Letters, Numbers and '_' ","\n",paste(ind_names[stringr::str_detect(string = ind_names, pattern = "[^a-zA-Z\\d\\_]")],collapse = "; ")," violate(s) these requirements.")
+    }
+    #if (any(stringr::str_detect(string = col_names, pattern = " "))) warning("Avoid whitespaces in Variable Names!")
+
+    # check for proper variable naming
+    if (any(stringr::str_detect(string = col_names, pattern = "[^a-zA-Z\\d\\_]"))) {
+        warning("Avoid whitespaces in variable names! Additionally they should only contain Letters, Numbers and '_' ","\n",paste(col_names[stringr::str_detect(string = col_names, pattern = "[^a-zA-Z\\d\\_]")],collapse = "; ")," violate(s) these requirements.")
+    }
 
     if (any(names(opt) == "blank")) {
         if (any(!(opt[["blank"]] %in% ind_names))) {
@@ -173,8 +200,8 @@ if (!is.numeric(df)) stop("Not all retention times are numeric. Make sure to use
         y <- unlist(lapply(gc_peak_list,check_var_count))
         if (length(which(y != 1)) > 0) {
             out <- names(y[which(y != 1)])
-            warning(paste(out,collapse = "; ") ," violate(s) the requirements.",call. = FALSE)
-            warning("Every sample needs to have the same number of values for each variable!",call. = FALSE)
+            warning("Every sample needs to have the same number of values for each variable!","\n", paste(out,collapse = "; ")," violate(s) the requirements.",call. = FALSE)
+            #warning(paste(out,collapse = "; ") ," violate(s) the requirements.",call. = FALSE)
             pass <- FALSE
         }
         return(pass)
@@ -183,9 +210,9 @@ if (!is.numeric(df)) stop("Not all retention times are numeric. Make sure to use
     ## Checks that every sample has the same number of values per column
     format_pass <- format_error(gc_peak_list)
     if (pass == TRUE & format_pass == TRUE) {
-        cat("All checks passed!\n\n")
+        if (message == TRUE) cat("All checks passed!\n\n")
     } else {
-        cat("Not all checks have been passed. Read warning messages and change data accordingly\n")
+        cat("Not all checks have been passed. Read warning messages below and change accordingly to proceed\n\n")
     }
 
 
@@ -213,7 +240,7 @@ if (!is.numeric(df)) stop("Not all retention times are numeric. Make sure to use
         arg_list <- list()
         if (!"main" %in% names(mcall)) arg_list <- append(arg_list,list(main = ""))
         if (!"xlab" %in% names(mcall)) arg_list <- append(arg_list,list(xlab = ""))
-        if (!"ylab" %in% names(mcall)) arg_list <- append(arg_list,list(ylab = "# Peaks"))
+        if (!"ylab" %in% names(mcall)) arg_list <- append(arg_list,list(ylab = "Number of Peaks"))
         if (!"cex.axis" %in% names(mcall)) arg_list <- append(arg_list,list(cex.axis = 1.25))
         if (!"cex.lab" %in% names(mcall)) arg_list <- append(arg_list,list(cex.lab = 1.25))
         if (!"cex.names" %in% names(mcall)) {

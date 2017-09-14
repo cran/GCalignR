@@ -1,118 +1,67 @@
-#' Aligning gas-chromatography peaks based on retention times
+#' Aligning peaks based on retention times
 #'
 #'@description
-#' This is the core function of \code{\link{GCalignR}} to align gas-chromatography peak data.
-#' Read through the documentation below and take a look at the vignettes for a thorough introduction.
+#' This is the core function of \code{\link{GCalignR}} to align peak data. The input data is a peak list. Read through the documentation below and take a look at the vignettes for a thorough introduction. Three parameters \code{max_linear_shift}, \code{max_diff_peak2mean} and \code{min_diff_peak2peak} are required as well as the column name of the peak retention time variable \code{rt_col_name}. Arguments are described among optional parameters below.
 #'
 #'@details
-#' The alignment of peaks is achieved by running \strong{three major algorithms} always considering
-#' the complete set of samples submitted to the function.
-#' In brief: \strong{(1) Chromatograms (more correctly, their peaks) are shifted} to maximise
-#' similarity with a reference to account for systematic shifts in retention times
-#' caused by gas-chromatography processing. \strong{(2) Peaks of similar retention times are aligned}
-#' in order to match similar retention times to the same substance. During the algorithm proceeds,
-#' these clusters are continously revised and every peaks is moved to the optimal
-#' location(i.e. substance). \strong{(3) Peaks of similar retention time are merged} if
-#' they show smaller differences in mean retention times than expected by the achievable
-#' resolution of the gas-chromatography or the chemistry of the compounds are merged.
-#' This has to be specfied by the paramters \code{max_diff_peak2mean} and \code{min_diff_peak2peak}.
-#' Several optional processing steps are available, ranging from the removal of peaks representing
-#' contaminations (requires to include blanks as a control) to the removal of uninformative peaks
-#' that are present in just one sample.
+#' This function aligns and matches homologous peaks across samples using a three-step algorithm based on user-defined parameters that are explained in the next section. In brief: \strong{(1)} A full alignment of peak retention times is conducted to correct for systematic linear drift of retention times among homologous peaks from run to run. Thereby a coarse alignment is achieved that maximises the similarity of retention times across homologous peaks prior to a \strong{(2)} partial alignment and matching of peaks. This and the next step in the alignment is based on a retention time matrix that contains all samples as columns and peak retention times in rows. The goal is to match homologous peaks within the same row that represents a chemical substance. Here, peaks are recognised as homologous when the retention time matches within a user-defined error span (see \code{max_diff_peak2mean}) that approximates the expected retention time uncertainty. Here, the position of every peak in the matrix is evaluated in comparison to similar peaks across the complete dataset and homologous peaks are gradually grouped together row by row. After all peaks were matched, a \strong{(3)} adjacent rows of similar retention time are scanned to detect redundancies. A pair of rows is identified as redundant and merged if mean retention times are closer than specified by \code{min_diff_peak2peak} and single samples only contain peak in one but not both rows. Therefore, this step allows to match peaks that are associated with higher variance than allowed during the previous step. Several optional processing steps are available, ranging from the removal of peaks representing contaminations (requires to include blanks as a control) to the removal of uninformative peaks that are present in just one sample (so called singletons).
 #'
 #'@param data
-#' Two input formats are supported. The first option is the \strong{path to a plain text file} with extension ".txt" containing the gc-data. It is expected that the file is formatted following this
-#' principle: The first row contains sample names, the second row column names of the corresponding
-#' chromatograms. Starting with the third row, peak data are included, whereby matrices of single
-#' samples are concatenated horizontally (see the vignette or example data). The matrix for each
-#' sample needs to consist of the same number of columns, at least two are required: The retention time and a measure of concentration
-#' (e.g. peak area or height). See the \href{../doc/GCalignR_step_by_step.html}{vignette} for an
-#' example. Alternatively the input may be a \strong{list of data frames}. Each data frame contains
-#' the peak data for a single individual with at least two variables, the retention time of the peak
-#' and the area under the peak. The variables need to have the same names across all samples
-#' (i.e. data frames). Also, each list element has to be named with the ID of the respective sample.
-#' The format can be checked by running \code{\link{check_input}}.
+#' Dataset containing peaks that need to be aligned and matched. For every peak a arbitrary number of numerical variables can be included (e.g. peak height, peak area) in addition to the mandatory retention time. The standard format is a tab-delimited text file according to the following layout: (1) The first row contains sample names, the (2) second row column names of the corresponding peak lists. Starting with the third row, peak lists are included for every sample that needs to be incorporated in the dataset. Here, a peak list contains data for individual peaks in rows, whereas columns specifiy variables in the order given in the second row of the text file. Peak lists of individual samples are concatenated horizontally and need to be of the same width (i.e. the same number of columns in consistent order). Alternatively, the input may be a list of data frames. Each data frame contains the peak data for a single individual. Variables (i.e.columns) are named consistently across data frames. The names of elements in the list are used as sample identifiers. Cells may be filled with numeric or integer values but no factors or characters are allowed. NA and 0 may be used to indicate empty rows.
 #'
 #'@param sep
 #' The field separator character. The default is tab separated (\code{sep = '\\t'}).
 #' See the "sep" argument in \code{\link[utils]{read.table}} for details.
 #'
 #'@param rt_col_name
-#' Character string - the name of the column containing the retention times.The variable needs to
-#' be numeric and the decimal separator needs to be a point.
+#' A character giving the name of the column containing the retention times. The decimal separator needs to be a point.
 #'
 #'@param write_output
-#' Character vector of variables to write to a text file (e.g. \code{c("RT","Area")}.
-#' Vector elements need to correspond to column names of \code{data}. Writing output is optional.
+#' A character vector of variable names. For each variable a text file containing the aligned dataset is written to the working directory. Vector elements need to correspond to column names of data.
 #'
 #'@param rt_cutoff_low
-#' Lower threshold under which retention times are cutted (i.e. 5 minutes). Default NULL.
+#' A numeric value giving a retention time threshold. Peaks with retention time below the threshold are removed in a preprocessing step.
 #'
 #'@param rt_cutoff_high
-#' Upper threshold above which retention times are cutted (i.e. 35 minutes). Default NULL.
+#' A numeric value giving a retention time threshold. Peaks with retention time above the threshold are removed in a preprocessing step.
 #'
 #'@param reference
-#' Character string of a sample to which all other samples are aligned by means of a
-#' linear shift (e.g. \code{"M3"}. The name has to correspond to an individual name given
-#' in the first line of \code{data}. Alternatively a sample called \code{reference} can be included
-#' in \code{data} containing user-defined peaks (e.g. an internal standard) to align the samples to.
-#' After the linear transformation the \code{reference} will be removed from the data.
+#' A character giving the name of sample from the dataset. By default, a sample is automatically selected from the dataset using the function \code{\link{choose_optimal_reference}}. The reference is used for the full alignment of peak lists by linear transformation.
 #'
 #'@param max_linear_shift
-#' This value defines the maximum time that one chromatogram is expected to be deviating in retention times
-#' from another chromatogram. To correct for these systematic shifts, the algorithm potentially adds the same
-#' retention time to all peaks within a chromatogram to maximise the number of shared peaks with
-#' the reference. We recommend to start with the default of 0.02 (minutes) and increase if necessary.
+#' Numeric value giving the window size considered in the full alignment. Usually, the amplitude of linear drift is small in typical GC-FID datasets. Therefore, the default value of 0.05 minutes is adequate for most datasets. Increase this value if the drift amplitude is larger.
 #'
 #'@param max_diff_peak2mean
-#' Numeric value defining the allowed deviation of the retention time of a given peak from the mean of the corresponding row (i.e. scored substance). Defaults to 0.02 (minutes). This parameter reflects the retention time range in which peaks across samples are still counted as the same 'substance',
-#' i.e. sorted in one row.
+#' Numeric value defining the allowed deviation of the retention time of a given peak from the mean of the corresponding row (i.e. scored substance). This parameter reflects the retention time range in which peaks across samples are still matched as homologous peaks (i.e. substance). Peaks with retention times exceeding the threshold are sorted into a different row.
 #'
 #'@param min_diff_peak2peak
-#' Numeric values defining the expected minimum difference in retention times among different substances.
-#' Retention time rows that differ less, are therefore merged if every sample contains either
-#' one or none of the respective compounds.
-#' This parameter is a major determinant in the classification of distinct peaks.
-#' Therefore careful consideration is required to adjust this setting to your needs
-#' (e.g. the resolution of your gas-chromatography pipeline).
-#' Large values may cause the merge truely different substances with similar retention times, if those are not
-#' simultaneously occuring within at least one individual, which might occure by chance for small sample
-#' sizes. It is therefore recommended to set the value much lower (e.g. 0.02) when few individuals are
-#' analysed. Defaults to 0.08 (minutes).
+#' Numeric value defining the expected minimum difference in retention times among homologous peaks (i.e. substance). Rows that differ less in the mean retention time, are therefore merged if every sample contains either one or none of the respective compounds. This parameter is a major determinant in the classification of distinct peaks. Therefore careful consideration is required to adjust this setting to your needs (e.g. the resolution of your gas-chromatography pipeline). Large values may cause to merge truly different substances with similar retention times, if those are not simultaneously occurring within at least one individual, which might occur by chance for small sample sizes. By default set to 0.2 minutes.
 #'
 #'@param blanks
-#' Character vector of names of negative controls. Substances found in any of the blanks will be
-#' removed from all samples, before the blanks are deleted from the aligned data.
+#' Character vector of names of negative controls. Substances found in any of the blanks will be removed from the aligned dataset, before the blanks are deleted from the aligned data as well. This is an optional filtering step.
 #'
 #'@param delete_single_peak
-#' Logical, determining whether substances that occur in just one sample are removed or not. Default FALSE.
-#'
+#' Boolean, determining whether substances that occur in just one sample are removed or not. #'
 #'@return
-#' Returns an object of class "GCalign" that is a a list containing several objects that are listed below.
-#' Note, that the objects "heatmap_input" and "Logfile" are best inspected by calling the provided functions \emph{gc_heatmap} and \emph{print}.
-#' \item{aligned}{Aligned gas-chromatography data subdivided into individual data frames for every variable.
-#' Samples are represented by columns, rows specifiy substances. The first column of every data frame
-#' is comprised of the mean retention time of the respective substance (i.e. row). The aligned data
-#' can be used for further statistical analyses in other packages and also directly written
-#' to .txt file by specifying the write_output argument in align_chromatograms}
-#' \item{heatmap_input}{Data frames of retention times; used internally to create heatmaps}
-#' \item{Logfile}{Includs several lists summarizing the data; used to print diagonistics of the alignment}
-#' \item{input_list}{List of data frames. Data frames are comprised of the raw of a sample prior to aligning}
-#' \item{input_matrix}{List of data frames. Data frames are matrices of input variables}
+#' Returns an object of class "GCalign" that is a a list containing several objects that are listed below. Note, that the objects "heatmap_input" and "Logfile" are best inspected by calling the provided functions \code{gc_heatmap} and \code{print}.
+#' \item{aligned}{Aligned Gas Chromatography peak data subdivided into individual data frames for every variable. Samples are represented by columns, rows specify homologous peaks. The first column of every data frame is comprised of the mean retention time of the respective peak (i.e. row). Retention times of samples resemble the values of the raw data. Internally, linear adjustments are considered where appropriate}
+#' \item{heatmap_input}{Used internally to create heatmaps of the aligned data}
+#' \item{Logfile}{A protocol of the alignment process.}
+#' \item{input_list}{Input data in form of a list of data frames.}
+#' \item{aligned_list}{Aligned data in form of a list of data frames.}
+#' \item{input_matrix}{List of matrices. Each matrix contains the input data for a variable}
 #'
 #'@author Martin Stoffel (martin.adam.stoffel@@gmail.com) & Meinolf Ottensmann (meinolf.ottensmann@@web.de)
 #'
 #'
 #'@examples
-#' ## Load example data set
+#' ## Load example dataset
 #' data("peak_data")
 #' ## Subset for faster processing
 #' peak_data <- peak_data[1:3]
 #' peak_data <- lapply(peak_data, function(x) x[1:50,])
-#' ## align data
-#' out <- align_chromatograms(peak_data, rt_col_name = "time",
-#' rt_cutoff_low = 10, rt_cutoff_high = 30, reference = "M2",
-#' max_linear_shift = 0.02)
+#' ## align data with default settings
+#' out <- align_chromatograms(peak_data, rt_col_name = "time")
 #'
 #'@export
 #'
@@ -120,6 +69,7 @@ align_chromatograms <- function(data, sep = "\t", rt_col_name = NULL,
     write_output = NULL, rt_cutoff_low = NULL, rt_cutoff_high = NULL, reference = NULL,
     max_linear_shift = 0.02, max_diff_peak2mean = 0.02, min_diff_peak2peak = 0.08, blanks = NULL,
     delete_single_peak = FALSE) {
+
 
 # Print start
 cat(paste0('Run GCalignR\n','Start: ',as.character(strftime(Sys.time(),format = "%Y-%m-%d %H:%M:%S")),'\n\n'))
@@ -131,14 +81,26 @@ iterations = 1
 ### ======================
 
 # 1.1 Stop execution if mandatory checks are not passed
-x <- check_input(data,sep,write_output = write_output,blank = blanks,reference = reference,rt_col_name = rt_col_name)
-if (x != TRUE) stop("Processing not possible, check warnings for details")
 if (is.null(rt_col_name)) stop("Column containing retention times is not specifed. Define rt_col_name")
+x <- check_input(data,sep,write_output = write_output,blank = blanks,reference = reference,rt_col_name = rt_col_name, message = FALSE)
+if (x != TRUE) stop("Processing not possible: check warnings below and change accordingly in order to proceed")
 
 
 # 1.2 Create a "Logbook" to record alignment steps and parameters
 Logbook <- list()
 Logbook[["Date"]]["Start"] <- as.character(strftime(Sys.time()))
+
+### 1.3. Check that parameter combinations are sensible
+### ===================================================
+# if (min_diff_peak2peak <= max_diff_peak2mean) {
+#     cat("It is not advisable to set 'min_diff_peak2peak' to the same or a smaller value than 'max_diff_peak2mean'. See the vignettes for further information.\n")
+#     askYesNo <- function() {
+#         x <- readline("Do you want to quit the alignment now? [Yes/No] ")
+#         while (!(x %in% c("Yes", "No"))) x <- readline("Type 'Yes' or 'No' ")
+#         if (x == "Yes") stop("Processing interrupted on user request")
+#     }
+#     askYesNo()
+# }
 
 ### 2. Load Data
 ### ============
@@ -170,6 +132,13 @@ if (is.character(data)) { # txt file
         return(x)
     }
     gc_peak_list <- lapply(gc_peak_list,FUN = fx,rt_col_name = rt_col_name)
+    ## Remove purely-zero rows in samples (added 03.07)
+    gc_peak_list <- lapply(gc_peak_list, FUN = function(x) {
+        z <- which(x[[rt_col_name]] == 0)
+        if (length(z) > 0) x <- x[-z,]
+        return(x)
+    })
+
 
 } else if (is.list(data)) { # data is in a list
     col_names <- unlist(lapply(data, function(x) out <- names(x)))
@@ -177,21 +146,24 @@ if (is.character(data)) { # txt file
     ind_names <- names(data)
     gc_peak_list <- lapply(data,matrix_append,gc_peak_list = data, val = "NA") # same dimensions of dfs
 
+    # # force to numeric
+    # temp <- do.call("cbind", data)
+    # if (!(any(apply(temp, 2, class) %in% c("numeric","integer")))) {
+    #     na_1 <- length(which(is.na(temp)))
+    #     data <- lapply(data, function(x) as.data.frame(apply(x, 2, as.numeric)))
+    #     na_2 <- length(which(is.na(do.call("cbind", data))))
+    #     if (na_2 > na_1) warning("All columns need to contain only numericals or integers. NAs introduced by coercion")
+    #     }
+
 } # end load data
 
 # save gc_peak_list for documentation purposes
 input_list <- gc_peak_list
 
 # Write some information about the input data to the Logfile
-if (!is.null(reference)) {
-    if (reference == "reference") {
-    cat(paste0('Data for ',as.character(length(ind_names) - 1),' samples loaded.'))
-    Logbook[["Input"]]["Samples"] <- length(ind_names) - 1
-    }
-    } else {
     cat(paste0('Data for ',as.character(length(ind_names)),' samples loaded.'))
     Logbook[["Input"]]["Samples"] <- length(ind_names)
-}
+
     Logbook[["Input"]]["Range"] <- paste((range(peak_lister(gc_peak_list = gc_peak_list,rt_col_name = rt_col_name))),collapse = "-")
     Logbook[["Input"]]["File"] <- as.character(as.character(match.call()["data"]))
     Logbook[["Input"]]["Retention_Time"] <- rt_col_name
@@ -202,7 +174,11 @@ if (!is.null(blanks)) Logbook[["Input"]][["Blanks"]] <- paste(blanks,collapse = 
 
 ### 3. Start processing
 ### ===================
-
+# If the data only contains retention times (i.e. one colum) a dummy variable is added to ensure full compatibility with the data frame based manipulations
+if (ncol(gc_peak_list[[1]]) == 1) {
+    gc_peak_list <- lapply(X = gc_peak_list, dummy_col)
+    col_names <- c(col_names, "GCalignR_Dummy")
+}
 # 3.1. Cut retention times
 if (!is.null(rt_cutoff_low) | !is.null(rt_cutoff_high)) {
     cat("\nApply retention time cut-offs ... ")
@@ -229,61 +205,51 @@ if (!is.null(rt_cutoff_low) & is.null(rt_cutoff_high)) {
 
 # 3.2 Linear Transformation of peak retention times
 
+    # Revision 24-04-2017:
+    # Rounding is eliminated. Calculations are based on rounded values instead.
+
     # Round retention times to two decimals
-    round_rt <- function(gc_peak_df,rt_col_name = rt_col_name) {
-    gc_peak_df[rt_col_name] <- round(gc_peak_df[rt_col_name],digits = 2)
-    return(gc_peak_df)
-    }
-    gc_peak_list <- lapply(X = gc_peak_list,FUN = round_rt)
+    #round_rt <- function(gc_peak_df,rt_col_name = rt_col_name) {
+    #gc_peak_df[rt_col_name] <- round(gc_peak_df[rt_col_name],digits = 2)
+    #return(gc_peak_df)
+    #}
+    # gc_peak_list <- lapply(X = gc_peak_list,FUN = round_rt)
 
 if (!is.null(reference)) {
-if (reference == "reference") {
-    # reference is not a true sample and is used exclusevely for linear alignment
-    cat(paste0('\nStart correcting linear shifts with ',"\"",as.character(reference),"\"",' as a reference ...'))
-
-gc_peak_list_linear <- linear_transformation(gc_peak_list, max_linear_shift = max_linear_shift, step_size = 0.01, reference = reference, rt_col_name = rt_col_name, Logbook = Logbook)
+    cat(paste0('\nStart correcting linear shifts with ',"\"",as.character(reference),"\"",' as a reference ...\n'))
+    gc_peak_list_linear <- linear_transformation(gc_peak_list = gc_peak_list, max_linear_shift = max_linear_shift, step_size = 0.01, reference = reference, rt_col_name = rt_col_name, Logbook = Logbook)
     Logbook <- gc_peak_list_linear[["Logbook"]]
     gc_peak_list_linear <- gc_peak_list_linear[["chroma_aligned"]]
     gc_peak_list_linear <- lapply(gc_peak_list_linear,function(x) data.frame(x))
-    gc_peak_list_linear <- lapply(gc_peak_list_linear, correct_colnames,col_names)
-    # remove reference after the systematic errors were corrected
-    gc_peak_list_linear <- gc_peak_list_linear[-which(names(gc_peak_list_linear) == reference)]
-    # remove the reference from the input retention time matrix
-    gc_peak_list_raw <- gc_peak_list_raw[-which(names(gc_peak_list_raw) == reference)]
-}  else {
-    gc_peak_list_linear <- linear_transformation(gc_peak_list, max_linear_shift = max_linear_shift,
-        step_size = 0.01, reference = reference, rt_col_name = rt_col_name, Logbook = Logbook)
-    Logbook <- gc_peak_list_linear[["Logbook"]]
-    gc_peak_list_linear <- gc_peak_list_linear[["chroma_aligned"]]
-    gc_peak_list_linear <- lapply(gc_peak_list_linear,function(x) data.frame(x))
-    gc_peak_list_linear <- lapply(gc_peak_list_linear, correct_colnames,col_names)
-}
+    gc_peak_list_linear <- lapply(gc_peak_list_linear, correct_colnames, col_names)
 } else if (is.null(reference)) {
     # If no reference was specified by the user, the reference is determined, such
     # that the sample with the highest avarage similarity to all other samples is used.
-    cat("\nNo reference was specified. Hence, a reference is selected automatically ... ")
-    best.ref <- choose_optimal_reference(gc_peak_list = gc_peak_list, rt_col_name = rt_col_name)
+    cat("\nNo reference was specified. Hence, a reference will be selected automatically ...\n ")
+    best.ref <- choose_optimal_reference(data = gc_peak_list, rt_col_name = rt_col_name)
     # set the reference
     reference <- best.ref[["sample"]]
-    cat("done\n")
-    text <- paste0("'",reference,"' was selected on the basis of highest average similarity to all samples (score = ",best.ref[["score"]],").")
-    cat(stringr::str_wrap(paste(text,collapse = ""),width = 80,exdent = 0,indent = 0))
-     cat(paste0('\nStart correcting linear shifts with ',"\"",as.character(reference),"\"",' as a reference ...'))
+    cat("\n")
+    text <- paste0("'",reference,"' was selected on the basis of highest average similarity to all samples (score = ",round(best.ref[["score"]],2),").\n")
+    cat(stringr::str_wrap(paste(text,collapse = ""),width = 100,exdent = 0,indent = 0))
+   #    }# new end
+     cat(paste0('\nStart correcting linear shifts with ',"\"",as.character(reference),"\"",' as a reference ...\n'))
     gc_peak_list_linear <- linear_transformation(gc_peak_list, max_linear_shift = max_linear_shift,
         step_size = 0.01, reference = reference, rt_col_name = rt_col_name, Logbook = Logbook)
     Logbook <- gc_peak_list_linear[["Logbook"]]
     gc_peak_list_linear <- gc_peak_list_linear[["chroma_aligned"]]
     gc_peak_list_linear <- lapply(gc_peak_list_linear,function(x) data.frame(x))
     gc_peak_list_linear <- lapply(gc_peak_list_linear, correct_colnames,col_names)
-}
+}# old end
 
     Logbook[["Input"]]["Reference"] <- reference
-    cat(" done\n")
+    # why is there a cat?
+    #cat(" done\n")
     # equalise chromatograms sizes
     gc_peak_list_linear <- lapply(gc_peak_list_linear, matrix_append, gc_peak_list_linear)
 
 # 3.3 Align peaks
-
+    cat("\n")
     cat(c('Start aligning peaks ... ','this might take a while!\n'))
 
     # create corresponding lists
@@ -309,7 +275,7 @@ for (R in 1:iterations) {
     no_peaks[R] <- nrow(gc_peak_list_aligned[[1]])
 
 # 3.4 Merge rows
-    cat("\nMerge redundant substances ... ")
+    cat("\nMerge redundant rows ...\n ")
     gc_peak_list_aligned <- merge_redundant_peaks(gc_peak_list_aligned,
         min_diff_peak2peak = min_diff_peak2peak, rt_col_name = rt_col_name)
     # estimate Number of merged peaks
@@ -319,13 +285,13 @@ for (R in 1:iterations) {
 
     Logbook[["Aligned"]]["total"] <- no_peaks[R]
 
-    cat('done')
+    #cat('done')
     average_rts <- mean_retention_times(gc_peak_list_aligned, rt_col_name = rt_col_name)
     # delete empty rows again
     gc_peak_list_aligned <- lapply(gc_peak_list_aligned, delete_empty_rows, average_rts)
 }#end iterative loop of aligning & merging
 
-cat(paste0('\n','Alignment completed'),'\n\n')
+#cat(paste0('\n','Alignment completed'),'\n\n')
 
 ### 4 Cleaning chromatograms
 ### ========================
@@ -361,7 +327,7 @@ for (i in blanks) {gc_peak_list_aligned <- delete_blank(i, gc_peak_list_aligned)
 if (delete_single_peak) {
     cat("remove single peaks ... ")
     single_subs_ind <- which(rowSums(rt_mat > 0) == 1)
-    # delete substances occuring in just one individual
+    # delete substances occurring in just one individual
     if (length(single_subs_ind) > 0) {
             gc_peak_list_aligned <- lapply(gc_peak_list_aligned, function(x) x[-single_subs_ind, ])
     }
@@ -387,7 +353,7 @@ if (delete_single_peak) {
 ### 6: Create output matrices for Variables
 ### =======================================
 
-    # Aligned data
+        # Aligned data
     row_mean <- function(x) {if (all(x == 0)) 0 else mean(x[x != 0])}
     mean_per_row <- apply(rt_mat,1, row_mean)
     output <- lapply(col_names, function(y) as.data.frame(do.call(cbind, lapply(gc_peak_list_aligned, function(x) x[y]))))
@@ -427,7 +393,7 @@ if (delete_single_peak) {
     })
     names(input) <- col_names
 
-### 7 Some protocollation
+### 7 Some protocolation
 ### =====================
     # Call of align_chromatograms, List
     call <- as.list(match.call())[-1]
@@ -462,13 +428,30 @@ if (!is.null(write_output)) {
     Logbook[["Date"]]["End"] <- as.character(strftime(Sys.time()))
 
 ### 9 Generate a list containing all returned output
+
+    if ("GCalignR_Dummy" %in% col_names) {
+        # remove the dummy variable when one was created
+        gc_peak_list <- lapply(X = gc_peak_list, dummy_remove)
+        gc_peak_list_aligned <- lapply(X = gc_peak_list_aligned, dummy_remove)
+        gc_peak_list_linear <- lapply(X = gc_peak_list_linear, dummy_remove)
+        gc_peak_list_raw <- lapply(X = gc_peak_list_raw, dummy_remove)
+        output <- output[-2]
+        input <- input[-2]
+    }
+    # substitute manipulated retention times with the input values
+    output <- remove_linshifts(dx = output, rt_col_name = rt_col_name, Logbook = Logbook)
+    gc_peak_list_aligned <- remove_linshifts2(dx = gc_peak_list_aligned, rt_col_name = rt_col_name, Logbook = Logbook)
     output_algorithm <- list(aligned = output,
                              heatmap_input = list(input_rts = rt_raw,
-                             linear_transformed_rts = rt_linear,aligned_rts = rt_aligned),
-                             Logfile = Logbook, aligned_list = gc_peak_list_aligned ,input_list = input_list, input_matrix = input)
+                             linear_transformed_rts = rt_linear,
+                             aligned_rts = rt_aligned),
+                             Logfile = Logbook,
+                             aligned_list = gc_peak_list_aligned,
+                             input_list = input_list,
+                             input_matrix = input)
 
     class(output_algorithm) <- "GCalign"
 
-    cat(paste0('\nAlignment was successful!\n','Time:'),strftime(Sys.time(),format = "%Y-%m-%d %H:%M:%S"),'\n\n')
+    cat(paste0('\nAlignment completed!\n','Time:'),strftime(Sys.time(),format = "%Y-%m-%d %H:%M:%S"),'\n\n')
     return(output_algorithm)
 }# end align_chromatograms

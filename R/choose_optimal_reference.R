@@ -1,32 +1,52 @@
-#' Picks the most suitable Reference for systematic shift corrections
+#' Select the optimal reference for full alignments of peak lists
 #'
 #' @description
-#' Selects the chromatogram that shows the highest average similarity to all other samples a the reference for linear corrections of systematic shifts in peak retention times.
+#' Full alignments of peak lists require the specification of a fixed reference to which all other samples are aligned to. This function provides an simple algorithm to find the most suitable sample among a dataset. The so defined reference can be used for full alignments using \code{\link{linear_transformation}}. The functions is evoked internally by \code{\link{align_chromatograms}} if no reference was specified by the user.
 #'
 #' @details
-#' In order to correct systematic errors in peak retention times the most suitable reference chromatogram is selected based on the objective criterion of the highest average similarity to all other chromatograms in the data. Precisely, the median number of shared peaks between a sample and all other samples is estimated for any chromatogram in \code{gc_peak_list}. The most suitable referene is then defined as the sample showing the highest median similarity score.
+#' Every sample is considered in determining the optimal reference in comparison to all other samples by estimating the similarity to all other samples. For a reference-sample pair, the deviation in retention times between all reference peaks and the always nearest peak in the sample is summed and divided by the number of reference peaks. The calculated value is a similarity score that converges to zero the more similar reference and sample are. For every potential reference, the median score of all pair-wise comparisons is used as a similarity proxy. The optimal sample is then defined by the minimum value among these scores. This functions is used internally in \code{\link{align_chromatograms}} to select a reference if non was specified by the user.
 #'
-#' @param gc_peak_list
-#' List of individual samples, where samples a data frames of numerical variables in columns. A column needs to contain retention times of peaks.
+#' @inheritParams align_chromatograms
 #'
-#' @param rt_col_name
-#' Name of the column in data frames of \code{gc_peak_list} that contains retention times.
+#' @examples
+#' ## 1.) input is a list
+#' ## using a list of samples
+#' data("peak_data")
+#' ## subset for faster processing
+#' peak_data <- peak_data[1:3]
+#' choose_optimal_reference(peak_data, rt_col_name = "time")
 #'
 #' @return
-#' returns a list with following elements
+#' A list with following elements
 #' \item{sample}{Name of the sample with the highest average similarity to all other samples}
 #' \item{score}{Median number of shared peaks with other samples}
 #'
 #' @author Martin Stoffel (martin.adam.stoffel@@gmail.com) & Meinolf Ottensmann (meinolf.ottensmann@@web.de)
-#' @keywords internal
+#'
 #' @import stats
 #'
-choose_optimal_reference <- function(gc_peak_list = NULL, rt_col_name = NULL){
+#' @export
+#'
+choose_optimal_reference <- function(data = NULL, rt_col_name = NULL, sep = "\t") {
     if (is.null(rt_col_name)) stop("Specify retention time column")
-    if (is.null(gc_peak_list)) stop("Provide a list of sampples")
+    if (is.null(data)) stop("Provide a list of sampples or the path to a text file")
+    gc_peak_list <- data
+    if (is.character(data)) gc_peak_list <- read_peak_list(data = data, rt_col_name = rt_col_name)
+
+    # Currently only one method is supported
+    method <- "Deviance"
+
+
     ## get the median scores for shared peaks
-    x <- df_median_sim_score(gc_peak_list = gc_peak_list,rt_col_name = rt_col_name)
-    index <- which(x[["score"]] == max(x[["score"]]))
+    x <- df_median_sim_score(gc_peak_list = gc_peak_list,rt_col_name = rt_col_name, method = method)
+
+    ## take the best, depending on the method choose
+    if (method == "Match") {
+        index <- which(x[["score"]] == max(x[["score"]]))
+    } else if (method == "Deviance") {
+        index <- which(min(x[["score"]]/x[["n_peaks"]]) == min(x[["score"]]/x[["n_peaks"]]))
+    }
+
     ## If more than one would get the same score, take the most central run
     if (length(index) > 1) {
     ## Odd or even number of samples determines the most central element
@@ -35,44 +55,45 @@ choose_optimal_reference <- function(gc_peak_list = NULL, rt_col_name = NULL){
     ## If still more than one index is equally well suited, i.e. Number 2 & 4
     index <- which(diffs == min(diffs))[1]
     }
-    return(list(sample = as.character(x[["sample"]][[index]]), score = x[["score"]][[index]]))
-}
+    return(list(sample = as.character(x[["sample"]][[index]]), score = x[["score"]][[index]]/x[["n_peaks"]][[index]]))
 
-### define internal functions
-## Scores for all samples
-df_median_sim_score <- function(gc_peak_list,rt_col_name){
-x <- data.frame(score = rep(NA,length(gc_peak_list)),sample = names(gc_peak_list))
-    for(i in 1:length(gc_peak_list)) {
-    x[["score"]][i] <- median_sim_score(gc_peak_list = gc_peak_list, ref_df = gc_peak_list[[i]],rt_col_name = rt_col_name)
     }
-return(x)
-    }
+#### internal functions ####
+#### ################## ####
+df_median_sim_score <- function(gc_peak_list, rt_col_name, method) {
+
+    pbapply::pboptions(type = "timer", char = "+", style = 1) # set up timer
+    temp <- pbapply::pblapply(gc_peak_list, function(x) median_sim_score(gc_peak_list = gc_peak_list, ref_df = x, rt_col_name = rt_col_name, method = method))
+    temp <- do.call("rbind", temp)
+    ## number of peaks per sample
+    temp_gc_peak_list <- remove_gaps(gc_peak_list = gc_peak_list)
+    temp <- data.frame(score = as.vector(temp),
+                       sample = rownames(temp),
+                       n_peaks = as.vector(unlist(lapply(temp_gc_peak_list, nrow))))
+    return(temp)
+}
 
 ## Median similiarity to all other chromas
-median_sim_score <- function(gc_peak_list,ref_df,rt_col_name){
-    return(stats::median(unlist(lapply(gc_peak_list, chrom_sim_score,ref_df = ref_df,rt_col_name = rt_col_name))))
+median_sim_score <- function(gc_peak_list, ref_df, rt_col_name, method = method){
+    return(stats::median(unlist(lapply(gc_peak_list, chrom_sim_score,ref_df = ref_df,rt_col_name = rt_col_name, method = method))))
 }
 
-## Function comparin two samples
-chrom_sim_score <- function(gc_peak_df, ref_df, rt_col_name,error=0) {
+## Function comparing two samples
+chrom_sim_score <- function(gc_peak_df, ref_df, rt_col_name, method = method) {
     ## get the rts of the reference
     ref_chroma <- ref_df[[rt_col_name]][!is.na(ref_df[[rt_col_name]])]
     sample_chroma <- gc_peak_df[[rt_col_name]][!is.na(gc_peak_df[[rt_col_name]])]
-    ## Initialise vector tracking shared peaks
-    peaks <- 0
-    ## loop through the sample
-    for (k in 1:length(sample_chroma)) {
-        ## loop through the Reference Chromatogram
-        for (l in 1:length(ref_chroma)) {
-            temp_peak <- sample_chroma[k]
-            ref_peak <- ref_chroma[l]
-            ## Avoid comparison with cases of RT=0
-            if (temp_peak != 0) {
-                if ((temp_peak <= ref_peak + error) & (temp_peak >= ref_peak - error)) {
-                    peaks <- peaks + 1
-                }
-            }
-        }
-    }
+
+    if (method == "Match") {
+        peaks  <- sum(unlist(lapply(X = ref_chroma, FUN = function(fx) {
+            ifelse(test = min(round(abs(fx - sample_chroma),2)) == 0, yes = 1, no = 0)
+        })))
+
+    } else if (method == "Deviance") {
+        peaks <- sum(unlist(lapply(X = ref_chroma, FUN = function(fx) {
+            min(abs(fx - sample_chroma))
+        })))
+
+        }# end method
     return(peaks)
 }

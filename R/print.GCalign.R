@@ -1,4 +1,4 @@
-#' Summarizing Peak Alignments with GCalignR
+#' Summarising Peak Alignments with GCalignR
 #'
 #' @description
 #' print method for class "GCalign"
@@ -6,8 +6,7 @@
 #' @inheritParams plot.GCalign
 #'
 #' @param write_text_file
-#' Logical. If \code{TRUE} the output is written to a plain text file. No text is printed
-#' to the console in this case.
+#' A boolean allowing to write a text file.
 #'
 #' @examples
 #' ## GCalign object
@@ -78,7 +77,7 @@ print(peaks)
 text <- c(text,paste("In total",peaks["total"],"substances were identified among all samples."))
 cat("\n")
 
-if (any((names_peaks) %in% "blanks")) text <- c(text,paste(peaks["blanks"],"substances were present in blanks. The corresponding peaks as well as the blanks were removed from the data set."))
+if (any((names_peaks) %in% "blanks")) text <- c(text,paste(peaks["blanks"],"substances were present in blanks. The corresponding peaks as well as the blanks were removed from the data."))
 if (any((names_peaks) %in% "singular")) text <- c(text,paste(peaks["singular"],"substances were present in just one single sample and were removed."))
 text <- c(text,paste(peaks["retained"], "substances are retained after all filtering steps."))
 cat(stringr::str_wrap(paste(text,collapse = " "),width = 80,exdent = 2,indent = 0))
@@ -96,7 +95,7 @@ cat("\n\n")
 
 # Refer to plots
 # -------------
-cat("For further details type...\n")
+cat("For further details type:\n")
 text <- paste0("'gc_heatmap(",object_name,")'"," to retrieve heatmaps")
 cat(stringr::str_wrap(paste(text,collapse = " "),width = 80,exdent = 2,indent = 2))
 cat("\n")

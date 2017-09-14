@@ -2,52 +2,42 @@
 % Please edit documentation in R/GC_Heatmap.R
 \name{gc_heatmap}
 \alias{gc_heatmap}
-\title{Visualises peak alignments}
+\title{Visualises peak alignments in form of a heatmap}
 \usage{
-gc_heatmap(object, algorithm_step = c("aligned", "linear_shifted",
-  "pre_alignment"), substance_subset = NULL, legend_type = c("legend",
-  "colourbar"), samples_subset = NULL, type = c("binary", "discrete"),
-  threshold = 0.05, label_size = NULL, show_legend = TRUE,
-  main_title = NULL, label = TRUE)
+gc_heatmap(object = NULL, algorithm_step = c("aligned", "shifted", "input"),
+  substance_subset = NULL, legend_type = c("legend", "colourbar"),
+  samples_subset = NULL, type = c("binary", "discrete"), threshold = NULL,
+  label_size = NULL, show_legend = TRUE, main_title = NULL,
+  label = c("y", "xy", "x", "none"))
 }
 \arguments{
-\item{object}{Object of class "GCalign", the output of a call to \link{align_chromatograms}.}
+\item{object}{Object of class "GCalign", the output of a call to \code{\link{align_chromatograms}}.}
 
-\item{algorithm_step}{Character indicating which step of the algorithm is plotted. Either \strong{pre_alignment}, \strong{linear_shifted} or \strong{aligned} specifiying the raw, linearly shifted or aligned data respectively.
-Default is the heatmap after alignment.}
+\item{algorithm_step}{Character indicating which step of the algorithm is plotted. Either "input", "shifted" or "aligned" specifying the raw, linearly shifted or aligned data respectively. Default is the heatmap for the aligned dataset.}
 
-\item{substance_subset}{Vector containing indices of substances (ordered in ascending order of retention times) to plot. By default \code{NULL} indicates that all substances are plotted.}
+\item{substance_subset}{A vector of integers containing indices of substances in ascending order of retention times to plot.}
 
-\item{legend_type}{Character specifying the type of colourbar as \strong{discrete} (i.e retention times are classified as deviating or not) or \strong{gradient} (i.e deviations are presented on a fine scale).}
+\item{legend_type}{A character specifying how to present deviations of retention times from the mean. Either in form of discrete steps or on a gradient scale using 'legend' or 'colourbar' respectively. Changes are only possible when \code{type = "discrete"}}
 
-\item{samples_subset}{Vector indicating which samples are plotted on the heatmap.
-Either a numeric vector of indices (order in the input) or a vector of sample names.}
+\item{samples_subset}{A vector indicating which samples are plotted on the heatmap by giving either indices or names of samples.}
 
-\item{type}{Character specifying whether a \strong{'binary'} heatmap or a heatmap of \strong{'discrete'}
-deviations is plotted.}
+\item{type}{A character specifying whether a deviations of retention times are shown 'binary' (i.e. in comparison to the threshold value) or on a 'discrete' scale with respect to the mean retention time.}
 
-\item{threshold}{Numerical value denoting the threshold above which the deviation of individual peak retention times
-from the mean retention time of the respective substance is highlighted in \emph{binary} heatmaps.}
+\item{threshold}{A numeric value denoting the threshold above which the deviation of individual peak retention times from the mean retention time of the respective substance are highlighted in heatmaps. By default, the value of parameter \code{max_diff_peak2mean} (see \code{\link{align_chromatograms}}) that was used in aligning the data is used.}
 
-\item{label_size}{Integer determining the size of labels on y and x axis. By default the label_size is calculated (beta!) to compromise between readibility and messines due to a potentially large number of substances and samples. Note: Labels for substances on the x axis are only possible if a maximum of 150 substances are plotted.}
+\item{label_size}{An integer determining the size of labels on y and x axis. By default a fitting label_size is calculate (beta!) to compromise between readability and messiness due to a potentially large number of substances and samples.}
 
-\item{show_legend}{Logical determining whether a legend is included or not. Default is TRUE.}
+\item{show_legend}{Boolean determining whether a legend is included or not.}
 
-\item{main_title}{Character argument used a title for the plot. If not specified, titles are generated automatically.}
+\item{main_title}{Character giving the title of the heatmap. If not specified, titles are generated automatically.}
 
-\item{label}{Logical determining whether labels for samples and substances are used. By default sample names are written on the vertical axis, but in large data sets its less readible and may be used effectively only for subsets of the data.}
+\item{label}{Character determining if labels are shown on axes. Depending on the number of peaks and/or samples, labels are difficult to read. Use subsets instead. Possible option are "xy", "x", "y" or "none"}
 }
 \value{
 object of class "ggplot"
 }
 \description{
-The goal of aligning chromatography peaks is to get the same substance in the same row, although it
-might have slightly different retention times across samples. This function makes it possible
-to evaluate the alignment by illustrating how far the retention time of a given peak within a sample
-deviates from the mean retention time for this substance across all samples after alignment. In other words,
-given that the mean retention time is the 'real' retention time of a substance, the heatmap
-shows how far a given peak deviates from it. Two types of heatmaps are available. A binary heatmap allows to determine
-if the retention time of single samples deviates by more than a user defined threshold from the mean. Optionally, a discrete heatmap allows to check deviations quantitatively.
+The goal of aligning peaks is to match homologous peaks that are thought to represent homologous substances in the same row across samples, although peaks have slightly different retention times across samples. This function makes it possible to evaluate the alignment quickly by inspecting the (i) distribution of peaks across samples, (ii) the variation for each homologous peak (column) as well as (iii) patterns that might hint at splitting peaks across rows. The mean retention time per homologous peak is here defined as the "true"  retention time and deviations of individual peaks can be seen by a large deviation in the retention time to the mean. Subsetting of the retention time range (i.e. selecting peaks by the mean retention time) and samples (by name or by position) allow to quickly inspect regions of interest. Two types of heatmaps are available, a binary heatmap allows to determine if the retention time of single samples deviates by more than the user defined threshold from the mean. Optionally, a discrete heatmap allows to check deviations quantitatively. Large deviation can have multiple reasons. The most likely explanation is given by the fact that adjacent rows were merged as specified by the value \code{min_diff_peak2peak} in \code{\link{align_chromatograms}}. Here clear cases, in which peaks of multiple samples have been grouped in either of two or more rows can be merged and cause relatively high variation in peak retention times.
 }
 \examples{
 
@@ -57,7 +47,7 @@ if the retention time of single samples deviates by more than a user defined thr
  gc_heatmap(aligned_peak_data, algorithm_step = "aligned")
 
  ## Plot the input data
- gc_heatmap(aligned_peak_data,algorithm_step = "pre_alignment")
+ gc_heatmap(aligned_peak_data,algorithm_step = "input")
 
  ## Plot a subset of the first 50 scored substances
  gc_heatmap(aligned_peak_data,algorithm_step="aligned",substance_subset = 1:50)
@@ -70,4 +60,3 @@ if the retention time of single samples deviates by more than a user defined thr
 Martin Stoffel (martin.adam.stoffel@gmail.com) &
         Meinolf Ottensmann (meinolf.ottensmann@web.de)
 }
-

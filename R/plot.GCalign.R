@@ -1,11 +1,7 @@
-#' Plot Diagonstics for an Gcalign Object
+#' Plot diagnostics for an GCalign Object
 #'
 #' @description
-#' Four plots are currently available: One plot visualises the distribution of linear shifts
-#' that were applied in order to align chromatograms to a reference before aligning individual peaks.
-#' A second plot illustrates the remaining variation of retention times on the level of individual
-#' peaks by plotting the distribution of retention time ranges. The third plots shows a distribution
-#' of peak numbers after aligning the chromatograms. A fourth plot illustrates the amount of peak sharing among chromatograms in a histogram.
+#' Visualises the aligned data based on four diagnostic plots. One plot shows the distribution of peak numbers per sample in the raw data and after alignment. A second plot gives the distribution of linear shifts that were applied in order to conduct a full alignment of samples with respect to reference. A third sample gives a distribution of the variation in retention times of homologous peaks. The fourth plot shows a frequency distribution of peaks shared among samples.
 #'
 #' @examples
 #' ## GCalign object
@@ -21,79 +17,83 @@
 #' plot(aligned_peak_data, which_plot = "variation")
 #'
 #' @param x
-#' Object of class GCalign, created by \code{\link{align_chromatograms}}
+#' Object of class GCalign, created with \code{\link{align_chromatograms}}
 #'
 #' @param which_plot
-#' character string indicating which plot is returned. Available are
-#' \strong{"shifts"} a histogram of linear adjustments undertaken in aligning chromatograms,
-#' \strong{"variation"} a histogram summarising the range of retention times for every peak defined
-#' by the difference between minimum and maximum retention times respectively. The third option
-#' is \strong{"peak_numbers"} plotting a barchart of the number of sharings per sample. Additionally \strong{"peaks_shared"} produces a histogram of the proportion with which sharings are shared among samples. This means for every sharing the proportion of samples containing the respective peak is estimated. By default all plots are returned as subplots of one figure.
+#' A character defining which plot is created. Options are "shifts", "variation", "peak_numbers" and "peaks_shared". By default all four are created.
 #'
 #' @param ...
-#' optional arguments passed on to methods. See
-#' \code{\link[graphics]{plot}}, \code{\link[graphics]{hist}} and \code{\link[graphics]{barplot}}.
-#' Note that optional arguments are not passed on when plotting all figures.
+#' Optional arguments passed on to methods. See
+#' \code{\link[graphics]{plot}}, \code{\link[graphics]{hist}} and \code{\link[graphics]{barplot}}. Note that optional arguments are not passed on when plotting all figures.
 #'
 #' @author Martin Stoffel (martin.adam.stoffel@@gmail.com) & Meinolf Ottensmann
 #'  (meinolf.ottensmann@@web.de)
 #'
 #' @return
-#' Depending on the value of \code{which_plot} a data frame containing the data source of the respective plot is returned. If \code{which_plot = "all"} no output is returned.
+#' Depending on the selected plot a data frame containing the data source of the respective plot is returned. If all plots are created, no output will be returned.
+#'
 #' @export
 #'
-plot.GCalign <- function(x,which_plot = c("all","shifts","variation","peak_numbers","peaks_shared"), ...) {
+plot.GCalign <- function(x, which_plot = c("all","shifts","variation","peak_numbers","peaks_shared"), ...){
 
-    ## initialising by picking arguments from call to plot.GCalign
+        ## initialising by picking arguments from call to plot.GCalign
     mcall = as.list(match.call())[-1L]
     ## allow partial matching
     which_plot <- match.arg(which_plot)
 
-### Define internal functions
-# -------------------------------------------------------------------
+    ### Define internal functions
+    # -------------------------------------------------------------------
     hist_linshift <- function(object,mcall,...){
         ## Get the applied shifts
-         xl <- object[["Logfile"]][["LinearShift"]]["shift"]
-         ## steps of linear shifts and their frequency
+        xl <- object[["Logfile"]][["LinearShift"]]["shift"]
+        ## steps of linear shifts and their frequency
         df <- as.vector(unlist(as.vector(xl)))
         xmax <- object[["Logfile"]][["Call"]][["max_linear_shift"]]
         xmin <- -xmax
+
+        # appropriate steps for hist breaks
+        if (xmax <= 0.1) bin_size <- 0.01
+        if (xmax > 0.1 & xmax < 0.75) bin_size <- 0.025
+        if (xmax >= 0.75 & xmax < 5) bin_size <- 0.1
+        if (xmax >= 5) bin_size <- NULL
 
         ## check for optional arguments in the function call, take defaults, if missing
         arg_list <- list()
         if (!"main" %in% names(mcall)) arg_list <- append(arg_list,list(main = "Full chromatogram shifts\n(Linear transformation)"))
         if (!"xlab" %in% names(mcall)) arg_list <- append(arg_list,list(xlab = "Shift size"))
-        if (!"ylab" %in% names(mcall)) arg_list <- append(arg_list,list(ylab = "# Samples"))
-        if (!"breaks" %in% names(mcall)) arg_list <- append(arg_list,list(breaks = seq(from = xmin,to = xmax + 0.01, by = 0.01)))
+        if (!"ylab" %in% names(mcall)) arg_list <- append(arg_list,list(ylab = "No. of samples"))
+        if (!"breaks" %in% names(mcall) & !is.null(bin_size)) arg_list <- append(arg_list,list(breaks = seq(from = xmin,to = xmax + bin_size, by = bin_size)))
         if (!"freq" %in% names(mcall) & !"frequency" %in% names(mcall)) arg_list <- append(arg_list,list(freq = TRUE))
         if (!"cex.axis" %in% names(mcall)) arg_list <- append(arg_list,list(cex.axis = 1.25))
         if (!"cex.lab" %in% names(mcall)) arg_list <- append(arg_list,list(cex.lab = 1.25))
         if (!"col" %in% names(mcall))  arg_list <- append(arg_list,list(col = "#1b9e77"))
         if (!"right" %in% names(mcall)) arg_list <- append(arg_list,list(right = FALSE))
-        if (!"xaxt" %in% names(mcall)) arg_list <- append(arg_list, list(xaxt = "n"))
         if (!"border" %in% names(mcall)) arg_list <- append(arg_list, list(border = "white"))
         # helper to find a good ylim
         p <- as.vector(as.numeric(summary(as.factor(df))))
         p <- max(p)#/sum(p)*100
         if (!"ylim" %in% names(mcall)) arg_list <- append(arg_list, list(ylim = c(0,round(p + 5,-1))))
+        if (!"breaks" %in% names(mcall) & !"xaxt" %in% names(mcall) & !is.null(bin_size)) arg_list <- append(arg_list, list(xaxt = "n"))
 
         x <- do.call(graphics::hist,args = c(list(x = df),arg_list,list(...)))
-        graphics::axis(side = 1, at = x[["mids"]], labels = seq(xmin, xmax, 0.01))
+
+        if (!"breaks" %in% names(mcall) & !"xaxt" %in% names(mcall) & !is.null(bin_size)) graphics::axis(side = 1, at = x[["mids"]], labels = seq(from = xmin, to = xmax, by = bin_size))
+
         return(df)
     }#end hist_linshift
 
     hist_peakvar <- function(x, mcall, ...) {
         ## Estimate the range of retention times per sharing, they should be no overlapp
-    MinMax <- function(x) {
-        temp <- matrix(NA,1,2)
-        colnames(temp) <- c("range","row")
-        data <- temp[0,]
-        for (i in 1:ncol(x)) {
-            data <- rbind(data,cbind(abs(diff(range(x[,i][x[,i] > 0],na.rm = TRUE))),i))
+        MinMax <- function(x) {
+            temp <- matrix(NA,1,2)
+            colnames(temp) <- c("range","row")
+            data <- temp[0,]
+            for (i in 1:ncol(x)) {
+                data <- rbind(data,cbind(abs(diff(range(x[,i][x[,i] > 0],na.rm = TRUE))),i))
+            }
+            return(as.data.frame(data))
         }
-        return(as.data.frame(data))
-    }
-    ## Range of RTs aligned
+        ## Range of RTs aligned
         df <- MinMax(x[["heatmap_input"]][["aligned_rts"]][,-1])
         ## Formatting
         df <- round(unlist(df["range"]),digits = 2)
@@ -103,8 +103,8 @@ plot.GCalign <- function(x,which_plot = c("all","shifts","variation","peak_numbe
 
         arg_list <- list()
         if (!"main" %in% names(mcall)) arg_list <- append(arg_list,list(main = "Variation across samples\n(Peak retention time)"))
-        if (!"xlab" %in% names(mcall)) arg_list <- append(arg_list,list(xlab = "Range [max - min]"))
-        if (!"ylab" %in% names(mcall)) arg_list <- append(arg_list,list(ylab = "# Substances"))
+        if (!"xlab" %in% names(mcall)) arg_list <- append(arg_list,list(xlab = "Range (max - min)"))
+        if (!"ylab" %in% names(mcall)) arg_list <- append(arg_list,list(ylab = "No. of substances"))
         if (!"breaks" %in% names(mcall)) arg_list <- append(arg_list,list(breaks = seq(xmin,xmax + 0.01,by = 0.01)))
         if (!"freq" %in% names(mcall) & !"frequency" %in% names(mcall)) arg_list <- append(arg_list,list(freq = TRUE))
         if (!"cex.axis" %in% names(mcall)) arg_list <- append(arg_list,list(cex.axis = 1.25))
@@ -116,7 +116,7 @@ plot.GCalign <- function(x,which_plot = c("all","shifts","variation","peak_numbe
         # helper to find a good ylim
         p <- as.vector(as.numeric(summary(as.factor(df))))
         p <- max(p) #/sum(p)*100
-       if (!"ylim" %in% names(mcall)) arg_list <- append(arg_list, list(ylim = c(0,round(p + 5,-1))))
+        if (!"ylim" %in% names(mcall)) arg_list <- append(arg_list, list(ylim = c(0,round(p + 5,-1))))
         x <- do.call(graphics::hist,args = c(list(x = df),arg_list,list(...)))
         graphics::axis(side = 1, at = x[["mids"]], labels = seq(xmin, xmax, 0.01))
         return(df)
@@ -141,13 +141,13 @@ plot.GCalign <- function(x,which_plot = c("all","shifts","variation","peak_numbe
         peak_df[,2] <- unlist(lapply(1:ncol(pr), function(y) temp <- length(pr[,y][pr[,y] > 0])))
         peak_df[order,3] <- unlist(lapply(1:ncol(alg), function(y) temp <- length(alg[,y][alg[,y] > 0])))
         peak_df <- data.frame(peak_df)
-        names(peak_df) <- c("id","pre-align.","aligned")
-        peak_df[["pre-align."]] <- as.numeric(as.character(peak_df[["pre-align."]]))
+        names(peak_df) <- c("id","pre-aligned","aligned")
+        peak_df[["pre-aligned"]] <- as.numeric(as.character(peak_df[["pre-aligned"]]))
         peak_df[["aligned"]] <- as.numeric(as.character(peak_df[["aligned"]]))
 
 
         peaks <- peak_df
-        peaks[["pre-align."]] <- peaks[["pre-align."]] - peaks[["aligned"]]
+        peaks[["pre-aligned"]] <- peaks[["pre-aligned"]] - peaks[["aligned"]]
         lablist <- peaks[["id"]]
         peaks <- t(peaks[,c(3,2)])
 
@@ -157,7 +157,7 @@ plot.GCalign <- function(x,which_plot = c("all","shifts","variation","peak_numbe
         arg_list <- list()
         if (!"main" %in% names(mcall)) arg_list <- append(arg_list,list(main = ""))
         if (!"xlab" %in% names(mcall)) arg_list <- append(arg_list,list(xlab = ""))
-        if (!"ylab" %in% names(mcall)) arg_list <- append(arg_list,list(ylab = "# Peaks"))
+        if (!"ylab" %in% names(mcall)) arg_list <- append(arg_list,list(ylab = "No. of peaks"))
         if (!"cex.axis" %in% names(mcall)) arg_list <- append(arg_list,list(cex.axis = 1.25))
         if (!"cex.lab" %in% names(mcall)) arg_list <- append(arg_list,list(cex.lab = 1.25))
         if (!"cex.names" %in% names(mcall)) {
@@ -174,23 +174,26 @@ plot.GCalign <- function(x,which_plot = c("all","shifts","variation","peak_numbe
         } else {
             label_size <- mcall[["cex.names"]]
         }
-        if (!"cex.names" %in% names(mcall)) arg_list <- append(arg_list,list(cex.names = label_size))
+        # if (!"cex.names" %in% names(mcall)) arg_list <- append(arg_list,list(cex.names = label_size))
         if (!"col" %in% names(mcall))  arg_list <- append(arg_list,list(col = c("red","blue")))
-        if (!"srt" %in% names(mcall))  arg_list <- append(arg_list,list(srt = 45))
-        if (!"las" %in% names(mcall))  arg_list <- append(arg_list,list(las = 2))
+        # if (!"srt" %in% names(mcall))  arg_list <- append(arg_list,list(srt = 45))
+        # if (!"las" %in% names(mcall))  arg_list <- append(arg_list,list(las = 2))
         if (!"names.arg" %in% names(mcall)) arg_list <- append(arg_list,list(names.arg = rep("",each = ncol(peaks))))
-        if (!"ylim" %in% names(mcall)) arg_list <- append(arg_list,list(ylim = c(0,ymax + 15)))
-        colnames(peaks) <- lablist
+        if (!"ylim" %in% names(mcall)) arg_list <- append(arg_list,list(ylim = c(-3,ymax + 15)))
+        # colnames(peaks) <- lablist
 
-       bars <- do.call(graphics::barplot,args = c(list(height = peaks, plot = F),arg_list,list(...)))
+        bars <- do.call(graphics::barplot,args = c(list(height = peaks, plot = F),arg_list,list(...)))
         if (!"xlim" %in% names(mcall)) arg_list <- append(arg_list, list(xlim = c(0, max(bars) + 3)))
         bars <- do.call(graphics::barplot,args = c(list(height = peaks),arg_list,list(...)))
+
         graphics::legend("topleft", rownames(peaks), fill = c("red","blue"), inset = c(-0.009,0), xjust = 0, cex = 0.75, bty = "n")
 
 
         if (!"names.arg" %in% names(mcall)) {
             # if ("cex.names" %in% names(mcall)) label_size <- cex.names
-            graphics::text(bars, graphics::par("usr")[1], labels = lablist, srt = 90, pos = 1, xpd = TRUE, cex = label_size, offset = 0.4)
+            if ("cex.axis" %in% names(mcall)) label_size <- mcall[["cex.axis"]]
+            graphics::axis(side = 1, at = bars, labels = lablist, cex.axis = label_size, las = 2)
+            #graphics::text(bars, graphics::par("usr")[1], labels = lablist, srt = 90, pos = 1, xpd = TRUE, cex = label_size, offset = 0.4)
         }
         rownames(peak_df) <- peak_df[["id"]]
         return(peak_df)
@@ -211,12 +214,12 @@ plot.GCalign <- function(x,which_plot = c("all","shifts","variation","peak_numbe
             sub <- df[,col]
             # number of samples having a peak
             N <- length(sub[sub > 0])
-           })))
+        })))
 
         arg_list <- list()
         if (!"main" %in% names(mcall)) arg_list <- append(arg_list,list(main = "Shared substances"))
-        if (!"xlab" %in% names(mcall)) arg_list <- append(arg_list,list(xlab = "Frequency of samples [%]"))
-        if (!"ylab" %in% names(mcall)) arg_list <- append(arg_list,list(ylab = "# Substances"))
+        if (!"xlab" %in% names(mcall)) arg_list <- append(arg_list,list(xlab = "Frequency of samples (%)"))
+        if (!"ylab" %in% names(mcall)) arg_list <- append(arg_list,list(ylab = "No. of substances"))
         if (!"breaks" %in% names(mcall)) arg_list <- append(arg_list,list(breaks = seq(0,101,by = 1)))
         if (!"freq" %in% names(mcall) & !"frequency" %in% names(mcall)) arg_list <- append(arg_list,list(freq = TRUE))
         if (!"cex.axis" %in% names(mcall)) arg_list <- append(arg_list,list(cex.axis = 1.25))
@@ -233,33 +236,33 @@ plot.GCalign <- function(x,which_plot = c("all","shifts","variation","peak_numbe
         graphics::axis(side = 1, at = x[["mids"]][seq(1,101,2)], labels = seq(0, 100, 2))
         return(peaks_shared)
     }#hist_shared_peaks
-# --------------------------------------------------------------------
+    # --------------------------------------------------------------------
 
-if (which_plot == "shifts") {
-out <- hist_linshift(object = x,mcall = mcall,...)
-out <- data.frame(shifts = out)
-out
-} else if (which_plot == "variation") {
-out <- hist_peakvar(x = x,mcall = mcall,...)
-out <- data.frame(range = as.vector(out), index_sharing = 1:length(as.vector(out)))
-out
-} else if (which_plot == "peak_numbers") {
-out <- bar_peakdistr(x = x,mcall = mcall,...)
-out <- data.frame(sample = rownames(out), pre_aligned = out[["pre-align."]],aligned = out[["aligned"]],row.names = 1:nrow(out))
-out
+    if (which_plot == "shifts") {
+        out <- hist_linshift(object = x,mcall = mcall,...)
+        out <- data.frame(shifts = out)
+        #return(out)
+    } else if (which_plot == "variation") {
+        out <- hist_peakvar(x = x,mcall = mcall,...)
+        out <- data.frame(range = as.vector(out), index_sharing = 1:length(as.vector(out)))
+        #return(out)
+    } else if (which_plot == "peak_numbers") {
+        out <- bar_peakdistr(x = x,mcall = mcall,...)
+        out <- data.frame(sample = rownames(out), pre_aligned = out[["pre-aligned"]],aligned = out[["aligned"]],row.names = 1:nrow(out))
+        #return(out)
 
-} else if (which_plot == "peaks_shared") {
-    ## Plot peak sharing distribution
-out <- hist_shared_peaks(x = x,mcall = mcall,...)
-out <- data.frame(rt = out[["time"]], prop = out[["prop"]])
-out
-} else if (which_plot == "all")  {
-  graphics::layout(matrix(c(1,1,1,2,3,4), 2, 3, byrow = TRUE))
-  bar_peakdistr(x = x,mcall = mcall)
-  hist_linshift(object = x,mcall = mcall)
-  hist_peakvar(x = x,mcall = mcall)
-  hist_shared_peaks(x = x, mcall = mcall,...)
-  ## back to normal screen partition
-  graphics::layout(mat = 1,widths = 1,heights = 1)
-}
+    } else if (which_plot == "peaks_shared") {
+        ## Plot peak sharing distribution
+        out <- hist_shared_peaks(x = x,mcall = mcall,...)
+        out <- data.frame(rt = out[["time"]], prop = out[["prop"]])
+        #return(out)
+    } else if (which_plot == "all")  {
+        graphics::layout(matrix(c(1,1,1,2,3,4), 2, 3, byrow = TRUE))
+        bar_peakdistr(x = x,mcall = mcall)
+        hist_linshift(object = x,mcall = mcall)
+        hist_peakvar(x = x,mcall = mcall)
+        hist_shared_peaks(x = x, mcall = mcall,...)
+        ## back to normal screen partition
+        graphics::layout(mat = 1,widths = 1,heights = 1)
+    }
 }

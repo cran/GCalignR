@@ -1,27 +1,21 @@
-#' Normalisation of peaks
+#' Normalisation of peak abundancies
 #'
 #' @description
-#' \code{norm_peaks} calculates the relative abundance of a peak by normalising
-#' with regard to the cumulative abundance of all peaks that are present within an
-#' individual chromatogram. The desired measure of peak abundance needs to be a column
-#' within the original gas-chromatography dataset aligned by \link{align_chromatograms}.
+#' Calculates the relative abundance of a peak by normalising an intensity measure with regard to the cumulative abundance of all peaks that are present within an individual sample. The desired measure of peak abundance needs to be included in a column of the input dataset aligned with \code{\link{align_chromatograms}}.
 #'
 #' @param data
-#' Object of class GCalign created with \link{align_chromatograms}. Contains a list
-#' of data frames including the retention time and other variables, of which one needs
-#' to be specified as \code{conc_col_name}.
+#' Object of class GCalign created with \code{\link{align_chromatograms}} or a list of data frames that contain peak list of individual samples.
 #'
 #' @param conc_col_name
-#' Character string denoting a column in data frames of \code{data}
-#' containing a variable describing the abundance of peaks (e.g. peak area or peak height).
+#' Character giving the name of a column in \code{data} containing a variable describing the abundance of peaks (e.g. peak area or peak height).
 #'
 #' @param out
-#' character string defining the format of the returned data. Either "List" or "data.frame".
+#' character defining the format of the returned data. Either "List" or "data.frame".
 #'
 #' @inheritParams align_chromatograms
 #'
 #' @return
-#' Depending on \code{out} either a list of data frame or a single data frame were rows represent samples and columns relative peak abundancies. Abundancies are given in percent.
+#' Depending on \code{out} either a list of data frame or a single data frame were rows represent samples and columns relative peak abundances. Abundances are given as percentages.
 #'
 #'  @author Martin Stoffel (martin.adam.stoffel@@gmail.com) &
 #'         Meinolf Ottensmann (meinolf.ottensmann@@web.de)
@@ -36,25 +30,17 @@
 norm_peaks <- function(data, conc_col_name = NULL, rt_col_name = NULL, out = c("data.frame","list")) {
 
 out <- match.arg(out)
-which <- "aligned" # which <- match.arg(which)
-
-## unused code chunks
-## ----------------------------------------------
-# if (which == "raw") which <- "input_matrix"
-## additional function parameters
-#  ..., percent = TRUE, which = c("aligned","raw")
-# param percent
-# By default percent values are returned (i.e. relative abundancies scale up to 100.) If
-#
-# param which
-# character string naming the data source to normalise. Either the aligned data or the raw data prior to alignment. The latter can be used for demonstration purposes.
-# -----------------------------------------------
 
 ## some checks
-if (class(data) != "GCalign") {warning("Input is not a output of align_chromatograms, assure the format is correct")}
 if (is.null(conc_col_name)) {stop("List containing peak concentration is not specified. Define conc_col_name")}
 
-conc_list <- data[[which]][[conc_col_name]]
+if (class(data) == "GCalign") {
+    which <-  "aligned"
+    conc_list <- data[[which]][[conc_col_name]]
+} else if (is.list(data)) {
+    conc_list <- lapply(data, function(fx) fx[[conc_col_name]])
+}
+
 
 # Function to do the calculations
 rel_abund <- function(conc_df){

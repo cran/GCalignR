@@ -1,51 +1,40 @@
-#' Visualises peak alignments
+#' Visualises peak alignments in form of a heatmap
 #'
 #' @description
-#' The goal of aligning chromatography peaks is to get the same substance in the same row, although it
-#' might have slightly different retention times across samples. This function makes it possible
-#' to evaluate the alignment by illustrating how far the retention time of a given peak within a sample
-#' deviates from the mean retention time for this substance across all samples after alignment. In other words,
-#' given that the mean retention time is the 'real' retention time of a substance, the heatmap
-#' shows how far a given peak deviates from it. Two types of heatmaps are available. A binary heatmap allows to determine
-#' if the retention time of single samples deviates by more than a user defined threshold from the mean. Optionally, a discrete heatmap allows to check deviations quantitatively.
+#' The goal of aligning peaks is to match homologous peaks that are thought to represent homologous substances in the same row across samples, although peaks have slightly different retention times across samples. This function makes it possible to evaluate the alignment quickly by inspecting the (i) distribution of peaks across samples, (ii) the variation for each homologous peak (column) as well as (iii) patterns that might hint at splitting peaks across rows. The mean retention time per homologous peak is here defined as the "true"  retention time and deviations of individual peaks can be seen by a large deviation in the retention time to the mean. Subsetting of the retention time range (i.e. selecting peaks by the mean retention time) and samples (by name or by position) allow to quickly inspect regions of interest. Two types of heatmaps are available, a binary heatmap allows to determine if the retention time of single samples deviates by more than the user defined threshold from the mean. Optionally, a discrete heatmap allows to check deviations quantitatively. Large deviation can have multiple reasons. The most likely explanation is given by the fact that adjacent rows were merged as specified by the value \code{min_diff_peak2peak} in \code{\link{align_chromatograms}}. Here clear cases, in which peaks of multiple samples have been grouped in either of two or more rows can be merged and cause relatively high variation in peak retention times.
 #'
 #' @param object
-#' Object of class "GCalign", the output of a call to \link{align_chromatograms}.
+#' Object of class "GCalign", the output of a call to \code{\link{align_chromatograms}}.
 #'
 #' @param algorithm_step
-#' Character indicating which step of the algorithm is plotted. Either \strong{pre_alignment}, \strong{linear_shifted} or \strong{aligned} specifiying the raw, linearly shifted or aligned data respectively.
-#' Default is the heatmap after alignment.
+#' Character indicating which step of the algorithm is plotted. Either "input", "shifted" or "aligned" specifying the raw, linearly shifted or aligned data respectively. Default is the heatmap for the aligned dataset.
 #'
 #' @param substance_subset
-#' Vector containing indices of substances (ordered in ascending order of retention times) to plot. By default \code{NULL} indicates that all substances are plotted.
+#' A vector of integers containing indices of substances in ascending order of retention times to plot.
 #'
 #' @param legend_type
-#' Character specifying the type of colourbar as \strong{discrete} (i.e retention times are classified as deviating or not) or \strong{gradient} (i.e deviations are presented on a fine scale).
+#' A character specifying how to present deviations of retention times from the mean. Either in form of discrete steps or on a gradient scale using 'legend' or 'colourbar' respectively. Changes are only possible when \code{type = "discrete"}
 #'
 #' @param  samples_subset
-#' Vector indicating which samples are plotted on the heatmap.
-#' Either a numeric vector of indices (order in the input) or a vector of sample names.
+#' A vector indicating which samples are plotted on the heatmap by giving either indices or names of samples.
 #'
 #' @param  type
-#' Character specifying whether a \strong{'binary'} heatmap or a heatmap of \strong{'discrete'}
-#' deviations is plotted.
+#' A character specifying whether a deviations of retention times are shown 'binary' (i.e. in comparison to the threshold value) or on a 'discrete' scale with respect to the mean retention time.
 #'
 #' @param threshold
-#' Numerical value denoting the threshold above which the deviation of individual peak retention times
-#' from the mean retention time of the respective substance is highlighted in \emph{binary} heatmaps.
+#' A numeric value denoting the threshold above which the deviation of individual peak retention times from the mean retention time of the respective substance are highlighted in heatmaps. By default, the value of parameter \code{max_diff_peak2mean} (see \code{\link{align_chromatograms}}) that was used in aligning the data is used.
 #'
 #'@param label_size
-#' Integer determining the size of labels on y and x axis. By default the label_size is calculated (beta!) to compromise between readibility and messines due to a potentially large number of substances and samples. Note: Labels for substances on the x axis are only possible if a maximum of 150 substances are plotted.
+#' An integer determining the size of labels on y and x axis. By default a fitting label_size is calculate (beta!) to compromise between readability and messiness due to a potentially large number of substances and samples.
 #'
 #'@param show_legend
-#' Logical determining whether a legend is included or not. Default is TRUE.
-#'
+#' Boolean determining whether a legend is included or not.
 #'
 #'@param main_title
-#' Character argument used a title for the plot. If not specified, titles are generated automatically.
+#' Character giving the title of the heatmap. If not specified, titles are generated automatically.
 #'
 #' @param label
-#' Logical determining whether labels for samples and substances are used. By default sample names are written on the vertical axis, but in large data sets its less readible and may be used effectively only for subsets of the data.
+#' Character determining if labels are shown on axes. Depending on the number of peaks and/or samples, labels are difficult to read. Use subsets instead. Possible option are "xy", "x", "y" or "none"
 #'
 #'@return
 #' object of class "ggplot"
@@ -63,7 +52,7 @@
 #'  gc_heatmap(aligned_peak_data, algorithm_step = "aligned")
 #'
 #'  ## Plot the input data
-#'  gc_heatmap(aligned_peak_data,algorithm_step = "pre_alignment")
+#'  gc_heatmap(aligned_peak_data,algorithm_step = "input")
 #'
 #'  ## Plot a subset of the first 50 scored substances
 #'  gc_heatmap(aligned_peak_data,algorithm_step="aligned",substance_subset = 1:50)
@@ -73,22 +62,27 @@
 #'
 #' @export
 #'
-gc_heatmap <- function(object, algorithm_step = c('aligned','linear_shifted','pre_alignment'),
-    substance_subset = NULL, legend_type = c('legend','colourbar'), samples_subset = NULL,
-    type = c("binary","discrete"), threshold = 0.05, label_size = NULL, show_legend = TRUE,
-    main_title = NULL, label = TRUE) {
+gc_heatmap <- function(object = NULL,
+                       algorithm_step = c('aligned','shifted','input'),
+                       substance_subset = NULL, legend_type = c('legend','colourbar'),
+                       samples_subset = NULL,
+                       type = c("binary","discrete"),
+                       threshold = NULL,
+                       label_size = NULL,
+                       show_legend = TRUE,
+                       main_title = NULL,
+                       label = c("y","xy","x","none")) {
 
     # removed from @import: RColorBrewer grDevices
     algorithm_step <- match.arg(algorithm_step)
     if (algorithm_step == "aligned") algorithm_step <- "aligned_rts"
-    if (algorithm_step == "linear_shifted") algorithm_step <- "linear_transformed_rts"
-    if (algorithm_step == "pre_alignment") algorithm_step <- "input_rts"
+    if (algorithm_step == "shifted") algorithm_step <- "linear_transformed_rts"
+    if (algorithm_step == "input") algorithm_step <- "input_rts"
 
+    if (is.null(threshold)) threshold <- object[["Logfile"]][["Call"]][["max_diff_peak2mean"]]
     type <- match.arg(type)
-
     legend_type <- match.arg(legend_type)
-
-
+    label <- match.arg(label)
 
 # Get the retention time matrix for the selected step
     rt_df <- object[['heatmap_input']][[algorithm_step]]
@@ -153,41 +147,70 @@ heat_matrix['substance'] <- as.factor(round(as.numeric(as.character(heat_matrix[
             hm <- ggplot(heat_matrix, aes_string(x = 'substance', y = 'id',fill = 'diff'),colour = "Blue")
             hm <- hm + geom_tile(color = "transparent", size = 0.001)
             hm <- hm + scale_fill_gradientn(colours = 'blue',na.value = "white")
-            hm <- hm + labs(x = "Substances", y = "Samples", title = ifelse(is.null(main_title),paste("No deviations exceeding a threshold of",as.character(threshold)),main_title))
+            hm <- hm + labs(x = "substance", y = "sample", title = ifelse(is.null(main_title),paste("No deviations exceeding a threshold of",as.character(threshold)),main_title))
             hm <- hm + guides(fill = FALSE)
         # Usual Case, at leat some samples deviate at certain retention times
         } else {
             hm <- ggplot(heat_matrix, aes_string(x = 'substance', y = 'id',fill = 'diff'))
             hm <- hm + geom_tile(color = "transparent", size = 0.001)
-            hm <- hm + scale_fill_continuous(low = "#a6cee3",high = "#b2182b",breaks = c(0,1),na.value = "white", guide = 'legend',name = paste('Deviation\n','>',as.character(threshold)),labels = c('NO','YES'))
-            hm <- hm + labs(x = "Substances", y = "Samples", title = ifelse(is.null(main_title),paste("Deviation from substance mean retention time\n(Threshold = ",as.character(threshold),")"),main_title))
+            hm <- hm + scale_fill_continuous(low = "blue",high = "red",breaks = c(0,1),na.value = "white", guide = 'legend',name = paste('Deviation\n','>',as.character(threshold)),labels = c('NO','YES'))
+            hm <- hm + labs(x = "substance", y = "sample", title = ifelse(is.null(main_title),paste("Deviation from substance mean retention time\n(Threshold = ",as.character(threshold),")"),main_title))
         }
         # type == continuos
     } else {
-        # Spectral colour scheme
-        # myPalette <-  grDevices::colorRampPalette(rev(RColorBrewer::brewer.pal(11, "Spectral")))
-        # col_pal = myPalette(10)
         col_pal <- c("#5E4FA2","#378EBA","#75C8A4","#BEE4A0","#F1F9A9","#FEEDA2", "#FDBE6F","#F67B49","#D8434D","#9E0142")
         r <- c(min(heat_matrix[["diff"]],na.rm = T),max(heat_matrix[["diff"]],na.rm = T))
 
-        # Take 10 colours form the spectral scheme
-        # colourset <- myPalette(10)
-        # remove middle ones for higher contrast
-        # colourset <- colourset[c(1:4,7:10)]
 
         hm <- ggplot(heat_matrix, aes_string(x = 'substance', y = 'id', fill = 'diff'))
         hm <- hm + geom_tile(color = "white", size = 0.01)
         hm <- hm + scale_fill_gradientn(colours = col_pal,guide = "legend",name = 'Deviation',na.value = "white", limits = c(-round(max(abs(r)),2) - 0.01,round(max(abs(r)),2) + 0.01)
         )
-        hm <- hm + labs(x = "Substances", y = "Samples", title = ifelse(is.null(main_title),"Variation of retention times",main_title))
+        hm <- hm + labs(x = "substance", y = "sample", title = ifelse(is.null(main_title),"Variation of retention times",main_title))
     }
     hm <- hm + theme(plot.title = element_text(hjust = 0.5,vjust = 1,size = 10,face = 'bold'))
+
+
+    theme(axis.text.x = element_text(size = label_size, hjust = 0.5,angle = 90),
+          axis.ticks.y = element_line(size = 0.3, colour = "grey60"),
+          axis.ticks.x = element_line(size = 0.3, colour = "grey60"),
+          axis.text.y = element_text(size = label_size,hjust = 0.5))
+
+
+
+    if (label == "xy") {
+        hm <- hm + theme(axis.title.x = element_text(size = 10),
+                         axis.title.y = element_text(size = 10),
+                axis.text.x = element_text(size = label_size, vjust = 0.5,angle = 90),
+                         axis.ticks.y = element_line(size = 0.3, colour = "grey60"),
+                         axis.ticks.x = element_line(size = 0.3, colour = "grey60"),
+                         axis.text.y = element_text(size = label_size,hjust = 0.5))
+
+    } else if (label == "y") {
+        hm <- hm + theme(axis.title.x = element_text(size = 10),
+                         axis.title.y = element_text(size = 10),
+                         axis.text.x = element_blank(),
+                         axis.ticks.y = element_line(size = 0.3, colour = "grey60"),
+                         axis.ticks.x = element_line(size = 0.3, colour = "grey60"),
+                         axis.text.y = element_text(size = label_size,hjust = 0.5))
+
+    } else if (label == "x") {
+        hm <- hm + theme(axis.title.x = element_text(size = 10),
+                         axis.title.y = element_text(size = 10),
+                axis.text.x = element_text(size = label_size, vjust = 0.5,angle = 90),
+                         axis.ticks.y = element_line(size = 0.3, colour = "grey60"),
+                         axis.ticks.x = element_line(size = 0.3, colour = "grey60"),
+                         axis.text.y = element_blank())
+
+    } else if (label == "none") {
     hm <- hm + theme(axis.title.x = element_text(size = 10),
                      axis.title.y = element_text(size = 10),
                      axis.text.x = element_blank(),
                      axis.ticks.y = element_line(size = 0.3, colour = "grey40"),
                      axis.ticks.x = element_line(size = 0.3, colour = "grey40"),
-                     axis.text.y = element_text(size = label_size,hjust = 0.5))
+                     axis.text.y = element_blank())
+
+    }
     hm <- hm + theme(plot.background = element_rect(fill = "grey95"))
 
     # Scoping issues reuire the following loop way to define the data frame
@@ -208,14 +231,16 @@ my.lines <- data.frame(y = y,x = x, xend = xend,yend = yend)
 hm <- hm + geom_segment(data = my.lines, aes(x,y,xend = xend, yend = yend),color = "grey", size = 0.35,show.legend = FALSE, inherit.aes = F)
 
 # If subsets are selected, allow to plot the substance labels for better idetenfication
-if ((!is.null(substance_subset) & ncol(rt_df) < 151) || ncol(rt_df) < 151 ) {
-    hm <- hm + theme(axis.text.x = element_text(size = label_size, hjust = 0.5,angle = 90),
-                     axis.ticks.y = element_line(size = 0.3, colour = "grey60"),
-                     axis.ticks.x = element_line(size = 0.3, colour = "grey60"),
-                     axis.text.y = element_text(size = label_size,hjust = 0.5))
+if (is.null(label)) {
+    if ((!is.null(substance_subset) & ncol(rt_df) < 151) || ncol(rt_df) < 151 ) {
+        hm <- hm + theme(axis.text.x = element_text(size = label_size, vjust = 0.5,angle = 90),
+                         axis.ticks.y = element_line(size = 0.3, colour = "grey60"),
+                         axis.ticks.x = element_line(size = 0.3, colour = "grey60"),
+                         axis.text.y = element_text(size = label_size,hjust = 0.5))
+    }
 }
-if (!show_legend) {hm <- hm + theme(legend.position = "none")}
-if (!label) {hm <- hm + theme(axis.text = element_blank())}
+
+if (!show_legend) hm <- hm + theme(legend.position = "none")
 # return the ggplot object
 return(hm)
 }

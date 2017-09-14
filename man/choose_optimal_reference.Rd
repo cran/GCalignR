@@ -2,28 +2,38 @@
 % Please edit documentation in R/choose_optimal_reference.R
 \name{choose_optimal_reference}
 \alias{choose_optimal_reference}
-\title{Picks the most suitable Reference for systematic shift corrections}
+\title{Select the optimal reference for full alignments of peak lists}
 \usage{
-choose_optimal_reference(gc_peak_list = NULL, rt_col_name = NULL)
+choose_optimal_reference(data = NULL, rt_col_name = NULL, sep = "\\t")
 }
 \arguments{
-\item{gc_peak_list}{List of individual samples, where samples a data frames of numerical variables in columns. A column needs to contain retention times of peaks.}
+\item{data}{Dataset containing peaks that need to be aligned and matched. For every peak a arbitrary number of numerical variables can be included (e.g. peak height, peak area) in addition to the mandatory retention time. The standard format is a tab-delimited text file according to the following layout: (1) The first row contains sample names, the (2) second row column names of the corresponding peak lists. Starting with the third row, peak lists are included for every sample that needs to be incorporated in the dataset. Here, a peak list contains data for individual peaks in rows, whereas columns specifiy variables in the order given in the second row of the text file. Peak lists of individual samples are concatenated horizontally and need to be of the same width (i.e. the same number of columns in consistent order). Alternatively, the input may be a list of data frames. Each data frame contains the peak data for a single individual. Variables (i.e.columns) are named consistently across data frames. The names of elements in the list are used as sample identifiers. Cells may be filled with numeric or integer values but no factors or characters are allowed. NA and 0 may be used to indicate empty rows.}
 
-\item{rt_col_name}{Name of the column in data frames of \code{gc_peak_list} that contains retention times.}
+\item{rt_col_name}{A character giving the name of the column containing the retention times. The decimal separator needs to be a point.}
+
+\item{sep}{The field separator character. The default is tab separated (\code{sep = '\\t'}).
+See the "sep" argument in \code{\link[utils]{read.table}} for details.}
 }
 \value{
-returns a list with following elements
+A list with following elements
 \item{sample}{Name of the sample with the highest average similarity to all other samples}
 \item{score}{Median number of shared peaks with other samples}
 }
 \description{
-Selects the chromatogram that shows the highest average similarity to all other samples a the reference for linear corrections of systematic shifts in peak retention times.
+Full alignments of peak lists require the specification of a fixed reference to which all other samples are aligned to. This function provides an simple algorithm to find the most suitable sample among a dataset. The so defined reference can be used for full alignments using \code{\link{linear_transformation}}. The functions is evoked internally by \code{\link{align_chromatograms}} if no reference was specified by the user.
 }
 \details{
-In order to correct systematic errors in peak retention times the most suitable reference chromatogram is selected based on the objective criterion of the highest average similarity to all other chromatograms in the data. Precisely, the median number of shared peaks between a sample and all other samples is estimated for any chromatogram in \code{gc_peak_list}. The most suitable referene is then defined as the sample showing the highest median similarity score.
+Every sample is considered in determining the optimal reference in comparison to all other samples by estimating the similarity to all other samples. For a reference-sample pair, the deviation in retention times between all reference peaks and the always nearest peak in the sample is summed and divided by the number of reference peaks. The calculated value is a similarity score that converges to zero the more similar reference and sample are. For every potential reference, the median score of all pair-wise comparisons is used as a similarity proxy. The optimal sample is then defined by the minimum value among these scores. This functions is used internally in \code{\link{align_chromatograms}} to select a reference if non was specified by the user.
+}
+\examples{
+## 1.) input is a list
+## using a list of samples
+data("peak_data")
+## subset for faster processing
+peak_data <- peak_data[1:3]
+choose_optimal_reference(peak_data, rt_col_name = "time")
+
 }
 \author{
 Martin Stoffel (martin.adam.stoffel@gmail.com) & Meinolf Ottensmann (meinolf.ottensmann@web.de)
 }
-\keyword{internal}
-

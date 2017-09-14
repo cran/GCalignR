@@ -2,10 +2,10 @@
 % Please edit documentation in R/linear_transformation.R
 \name{linear_transformation}
 \alias{linear_transformation}
-\title{Shift peaks to eliminate systematic inaccuracies of peak detection by GC.}
+\title{Full Alignment of Peak Lists by linear retention time correction.}
 \usage{
 linear_transformation(gc_peak_list, reference, max_linear_shift = 0.05,
-  step_size = 0.01, rt_col_name, Logbook)
+  step_size = 0.01, rt_col_name, Logbook = NULL)
 }
 \arguments{
 \item{gc_peak_list}{List of data.frames. Each data.frame contains GC-data
@@ -13,32 +13,34 @@ linear_transformation(gc_peak_list, reference, max_linear_shift = 0.05,
 stored in columns. Rows represent distinct peaks. Retention time is a
 required variable.}
 
-\item{reference}{character string with the name of a sample included in \code{gc_peak_list} used as a reference to align to.}
+\item{reference}{A character giving the name of a sample included in the dataset. All samples are aligned to the reference.}
 
-\item{max_linear_shift}{This value defines the maximum time that one chromatogram is expected to be deviating in retention times
-from another chromatogram. To correct for these systematic shifts, the algorithm potentially adds the same
-retention time to all peaks within a chromatogram to maximise the number of shared peaks with
-the reference. We recommend to start with the default of 0.02 (minutes) and increase if necessary.}
+\item{max_linear_shift}{Numeric value giving the window size considered in the full alignment. Usually, the amplitude of linear drift is small in typical GC-FID datasets. Therefore, the default value of 0.05 minutes is adequate for most datasets. Increase this value if the drift amplitude is larger.}
 
-\item{step_size}{integer, indicating the step size in which linear shifts are evaluated between \strong{max_linear_shift} and \strong{-max_linear_shift}.}
+\item{step_size}{Integer giving the step size in which linear shifts are evaluated between \code{max_linear_shift} and \code{-max_linear_shift}.}
 
-\item{rt_col_name}{Character string - the name of the column containing the retention times.The variable needs to
-be numeric and the decimal separator needs to be a point.}
+\item{rt_col_name}{A character giving the name of the column containing the retention times. The decimal separator needs to be a point.}
+
+\item{Logbook}{A list. If present, a summary of the applied linear shifts in full alignments of peak lists is appended to the list. If not specified, a list will be created automatically.}
 }
 \value{
-\item{chroma_aligned}{Transformed data}
+A list containing two items.
+\item{chroma_aligned}{List containing the transformed data}
 \item{Logbook}{Logbook, record of the applied shifts}
-List of data.frames containing chromatograms with applied linear shifts
 }
 \description{
-\strong{linear_transformation()} shifts all peaks within chromatograms to maximise the number
-of shared peaks with a reference chromatogram. Optimally, the reference contains known peaks which
-also occur in the samples. If a sample is taken as a reference, samples with high concentrations
-and clear peaks will lead to a better result.
+Shifts all peaks within samples to maximise the similarity to a reference sample. For optimal results, a sufficient number of shared peaks are required to find a optimal solution. A reference needs to be specified, for instance using \code{\link{choose_optimal_reference}}. Linear shifts are evaluated within a user-defined window in discrete steps. The highest similarity score defines the shift that will be applied. If more than a single shift step yields to the same similarity score, the smallest absolute value wins in order to avoid overcompensation. The functions is envoked internally by \code{\link{align_chromatograms}}.
+}
+\details{
+A similarity score is calculated as the sum of deviations in retention times between all reference peaks and the closest peak in the sample. The principle idea is that the appropriate linear transformation will reduce the deviation in retention time between homologous peaks, whereas all other peaks should deviate randomly. Among all considered shifts, the minimum deviation score is selected for subsequent full alignment by shifting all peaks of the sample by the same value.
+}
+\examples{
+dat <- peak_data[1:10]
+dat <- lapply(dat, function(x) x[1:50,])
+x <- linear_transformation(gc_peak_list = dat, reference = "C2", rt_col_name = "time")
+
 }
 \author{
 Martin Stoffel (martin.adam.stoffel@gmail.com) &
         Meinolf Ottensmann (meinolf.ottensmann@web.de)
 }
-\keyword{internal}
-
