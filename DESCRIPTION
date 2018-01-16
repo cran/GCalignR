@@ -1,7 +1,7 @@
 Package: GCalignR
 Title: Simple Peak Alignment for Gas-Chromatography Data
-Version: 1.0.0
-Date: 2017-09-15
+Version: 1.0.1
+Date: 2018-01-16
 Authors@R: c(person("Meinolf", "Ottensmann", email = "meinolf.ottensmann@web.de", role = c("aut","cre")),
     person("Martin", "Stoffel", email = "martin.adam.stoffel@gmail.com", role = c("aut")),
     person("Hazel J.", "Nichols", role = c("aut")),
@@ -25,11 +25,11 @@ VignetteBuilder: knitr
 BugReports: https://github.com/mottensmann/GCalignR/issues
 URL: https://github.com/mottensmann/GCalignR
 NeedsCompilation: no
-Packaged: 2017-09-14 21:05:00 UTC; MOMO
+Packaged: 2018-01-16 10:30:01 UTC; MOMO
 Author: Meinolf Ottensmann [aut, cre],
   Martin Stoffel [aut],
   Hazel J. Nichols [aut],
   Joseph I. Hoffman [aut]
 Maintainer: Meinolf Ottensmann <meinolf.ottensmann@web.de>
 Repository: CRAN
-Date/Publication: 2017-09-14 22:28:53 UTC
+Date/Publication: 2018-01-16 10:47:44 UTC
