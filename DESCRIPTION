@@ -1,8 +1,11 @@
 Package: GCalignR
 Title: Simple Peak Alignment for Gas-Chromatography Data
-Version: 1.0.2
-Date: 2018-07-16
-Authors@R: c(person("Meinolf", "Ottensmann", email = "meinolf.ottensmann@web.de", role = c("aut","cre")),
+Version: 1.0.3
+Date: 2020-08-20
+Encoding: UTF-8
+Authors@R: c(
+    person("Meinolf", "Ottensmann", email = "meinolf.ottensmann@web.de", role = c("aut","cre"), 
+    comment = c(ORCID = "0000-0003-3112-6928")),
     person("Martin", "Stoffel", email = "martin.adam.stoffel@gmail.com", role = c("aut")),
     person("Hazel J.", "Nichols", role = c("aut")),
     person("Joseph I.", "Hoffman", role = c("aut")))
@@ -16,20 +19,21 @@ Description: Aligns peak based on peak retention times and matches homologous pe
     in Ottensmann et al., 2018 <doi:10.1371/journal.pone.0198311>. 
 Depends: R (>= 3.2.5)
 Imports: ggplot2 (>= 2.2.1), graphics, stats, readr, reshape2, stringr,
-        utils, pbapply
-License: GPL (>= 2)
+        utils, pbapply, tibble
+License: GPL (>= 2) | file LICENSE
+Language: en-GB
 LazyData: true
-RoxygenNote: 6.0.1
+RoxygenNote: 7.1.1
 Suggests: knitr, pander, rmarkdown, testthat, vegan (>= 2.4.2)
 VignetteBuilder: knitr
 BugReports: https://github.com/mottensmann/GCalignR/issues
 URL: https://github.com/mottensmann/GCalignR
 NeedsCompilation: no
-Packaged: 2018-07-16 09:40:55 UTC; MOMO
-Author: Meinolf Ottensmann [aut, cre],
+Packaged: 2020-08-25 10:29:53 UTC; MOMO
+Author: Meinolf Ottensmann [aut, cre] (<https://orcid.org/0000-0003-3112-6928>),
   Martin Stoffel [aut],
   Hazel J. Nichols [aut],
   Joseph I. Hoffman [aut]
 Maintainer: Meinolf Ottensmann <meinolf.ottensmann@web.de>
 Repository: CRAN
-Date/Publication: 2018-07-16 10:00:06 UTC
+Date/Publication: 2020-08-26 08:00:07 UTC

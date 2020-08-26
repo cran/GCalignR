@@ -1,9 +1,9 @@
-## ---- echo = FALSE-------------------------------------------------------
+## ---- echo = FALSE------------------------------------------------------------
 library(knitr)
 knitr::opts_chunk$set(collapse = TRUE, comment = ">", cache = FALSE,
     fig.width = 8, fig.height = 6, fig.align = "center") 
 
-## ---- results='hide', echo=FALSE-----------------------------------------
+## ---- results='hide', echo=FALSE----------------------------------------------
 library(GCalignR)
 library(ggplot2)
 
@@ -16,13 +16,13 @@ df1 <- subset(df1, x > 3.5 & x < 27)
 chroma <- ggplot(data = df1, aes(x,y, fill = sample)) + geom_line(size = 1) + theme_classic() + xlab("Retention time ") + ylab("Intensity") + scale_x_continuous(breaks = seq(4,26,1),expand = c(0,0)) + theme(axis.text.y = element_blank(), axis.ticks.y = element_blank()) 
 chroma
 
-## ---- echo=F, fig.cap="Figure 2. Chromatogram with integrated peaks"-----
+## ---- echo=F, fig.cap="Figure 2. Chromatogram with integrated peaks"----------
 # Using an internal function, peaks are detected by searching for global maxima
 peaks <- find_peaks(df1) 
 # create the plot
 chroma + geom_linerange(data = peaks, aes(x = x, ymin = 0, ymax = y), linetype = "dashed", col = "black") + annotate("text", x = peaks[["x"]], y = peaks[["y"]] + 0.1, label = as.character(round(peaks[["y"]],2)), angle = 0) + geom_area(fill = "blue", alpha = 0.4) + theme(legend.position = "none")
 
-## ---- echo=FALSE---------------------------------------------------------
+## ---- echo=FALSE--------------------------------------------------------------
 # create a data frame that depicts a peak list
 df <- data.frame(row.names = c("Peak 1", "Peak 2", "Peak 3", "Peak 4", "Peak 5"), time = peaks[["x"]], height = peaks[["y"]])
 # print the table
@@ -40,7 +40,7 @@ peaks <- find_peaks(df)
 chroma <- chroma + geom_linerange(data = peaks, aes(x = x, ymin = y, ymax = y + 0.1), linetype = "solid", col = "black") + annotate("text", x = peaks[["x"]], y = peaks[["y"]] + 0.2, label = as.character(round(peaks[["x"]],2)), angle = 90)
 print(chroma)
 
-## ---- echo = FALSE, results='hide', eval=FALSE---------------------------
+## ---- echo = FALSE, results='hide', eval=FALSE--------------------------------
 #  ## these lines create a input file which is distributed with the package
 #  # sink("ChromSimul.txt",append = FALSE)
 #  ## write sample identifier
@@ -60,7 +60,7 @@ print(chroma)
 #  #write.table(dat_mat, row.names = F, col.names = F, sep = "\t")
 #  #sink()
 
-## ---- echo = FALSE-------------------------------------------------------
+## ---- echo = FALSE------------------------------------------------------------
 ## sample identifiers
 cat(levels(peaks[["sample"]]),sep = "\t") 
 ## variable names
@@ -183,7 +183,7 @@ knitr::include_graphics("merge_row.png",dpi = 300)
 ## ---- fig.cap="Figure 7. Chromatographic representation of the dataset prior to alignment", echo=FALSE----
 knitr::include_graphics("chroma_not_aligned.png", dpi = 300)
 
-## ---- eval=T, results="hide"---------------------------------------------
+## ---- eval=T, results="hide"--------------------------------------------------
 path <- system.file("extdata", "simulated_peak_data.txt", package = "GCalignR")
 aligned <- align_chromatograms(data = path,
                                rt_col_name = "rt",
@@ -192,10 +192,10 @@ aligned <- align_chromatograms(data = path,
                                min_diff_peak2peak = 1,
                                reference = "A2")
 
-## ------------------------------------------------------------------------
+## -----------------------------------------------------------------------------
 print(aligned[["Logfile"]][["LinearShift"]])
 
-## ---- fig.cap="Figure 8. Histogram of linear shifts."--------------------
+## ---- fig.cap="Figure 8. Histogram of linear shifts."-------------------------
 plot(aligned, which_plot = "shifts")
 
 ## ---- results="hide", fig.cap="Figure 9. Correcting linear drift reduces the gaps between homologous peak retention times"----

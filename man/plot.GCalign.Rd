@@ -4,8 +4,11 @@
 \alias{plot.GCalign}
 \title{Plot diagnostics for an GCalign Object}
 \usage{
-\method{plot}{GCalign}(x, which_plot = c("all", "shifts", "variation",
-  "peak_numbers", "peaks_shared"), ...)
+\method{plot}{GCalign}(
+  x,
+  which_plot = c("all", "shifts", "variation", "peak_numbers", "peaks_shared"),
+  ...
+)
 }
 \arguments{
 \item{x}{Object of class GCalign, created with \code{\link{align_chromatograms}}}
@@ -13,7 +16,7 @@
 \item{which_plot}{A character defining which plot is created. Options are "shifts", "variation", "peak_numbers" and "peaks_shared". By default all four are created.}
 
 \item{...}{Optional arguments passed on to methods. See
-\code{\link[graphics]{plot}}, \code{\link[graphics]{hist}} and \code{\link[graphics]{barplot}}. Note that optional arguments are not passed on when plotting all figures.}
+\code{\link[=graphics]{plot}}, \code{\link[=graphics]{hist}} and \code{\link[=graphics]{barplot}}. Note that optional arguments are not passed on when plotting all figures.}
 }
 \value{
 Depending on the selected plot a data frame containing the data source of the respective plot is returned. If all plots are created, no output will be returned.
