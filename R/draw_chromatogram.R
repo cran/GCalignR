@@ -1,18 +1,21 @@
 #' Visualise peak lists as a pseudo-chromatogram
 #'
 #' @description
-#' Creates a graphical representation of one or multiple peak lists in the form of a pseudo- chromatogram. Peaks are represented by gaussian distributions centered at the peak retention time. The peak height is arbitrary and does not reflect any measured peak intensity.
+#' Creates a graphical representation of one or multiple peak lists in the form of a pseudo- chromatogram. Peaks are represented by Gaussian distributions centred at the peak retention time. The peak height is arbitrary and does not reflect any measured peak intensity.
 #'
 #' @details
-#' Peaks from the are depicted as gaussian distributions. If the data is an "GCalign" object that was processed with \code{\link{align_chromatograms}}, chromatograms can be drawn for the dataset prior to alignment (\strong{"input"}), after correcting linear drift (\strong{"shifted"}) or after the complete alignment was conducted (\strong{"aligned"}). In the latter case, retention times refer to the mean retention time of a homologous peaks scored among samples and do not reflect any between-sample variation anymore. Depending on the range of retention times and the distance among substances the peak width can be adjusted to enable a better visual separation of peaks by changing the value of parameter \code{width}. Note, homologous peaks (= exactly matching retention time) will overlap completely and only the last sample plotted will be visible. Hence, the number of samples can be printed on top of each peak. The function returns a list containing the ggplot object along with the internally used data frame to allow for maximum control in adapting the plot (see examples section in this document).
+#' Peaks from the are depicted as Gaussian distributions. If the data is an "GCalign" object that was processed with \code{\link{align_chromatograms}}, chromatograms can be drawn for the dataset prior to alignment (\strong{"input"}), after correcting linear drift (\strong{"shifted"}) or after the complete alignment was conducted (\strong{"aligned"}). In the latter case, retention times refer to the mean retention time of a homologous peaks scored among samples and do not reflect any between-sample variation anymore. Depending on the range of retention times and the distance among substances the peak width can be adjusted to enable a better visual separation of peaks by changing the value of parameter \code{width}. Note, homologous peaks (= exactly matching retention time) will overlap completely and only the last sample plotted will be visible. Hence, the number of samples can be printed on top of each peak. The function returns a list containing the ggplot object along with the internally used data frame to allow for maximum control in adapting the plot (see examples section in this document).
 #'
 #' @param data
 #' The input data can be either a GCalignR input file or an GCalign object. See \code{\link{align_chromatograms}} for details on both.
 #'
 #' @inheritParams align_chromatograms
 #'
+#' @param conc_col_name
+#' Character, denoting a variable used to scale the peak height (e.g., peak area or peak height.)
+#'
 #' @param width
-#' Numeric value giving the standard deviation of gaussian peaks. Decrease this value to separate overlapping peaks within samples. Default is 0.01.
+#' Numeric value giving the standard deviation of Gaussian peaks. Decrease this value to separate overlapping peaks within samples. Default is 0.01.
 #'
 #' @param step
 #' character allowing to visualise different steps of the alignment when a GCalign object is used. By default the aligned data is shown.
@@ -58,7 +61,7 @@
 #'
 #' @export
 #'
-draw_chromatogram <- function(data = NULL, rt_col_name = NULL, width = 0.1, step = NULL, sep = "\t", breaks = NULL, rt_limits = NULL, samples = NULL, show_num = FALSE, show_rt = FALSE, plot = TRUE, shape = c("gaussian","stick"), legend.position = "bottom")  {
+draw_chromatogram <- function(data = NULL, rt_col_name = NULL, conc_col_name = NULL, width = 0.1, step = NULL, sep = "\t", breaks = NULL, rt_limits = NULL, samples = NULL, show_num = FALSE, show_rt = FALSE, plot = TRUE, shape = c("gaussian","stick"), legend.position = "bottom")  {
 
     shape <- match.arg(shape)
 
@@ -66,7 +69,7 @@ draw_chromatogram <- function(data = NULL, rt_col_name = NULL, width = 0.1, step
     if (is.null(data)) stop("Specify 'data'")
     if (is.null(rt_col_name)) stop("Specify 'rt_col_name'")
     if (show_num == TRUE & show_rt == TRUE) {
-        warning("Cannot simulataneously annotate peaks with retention time and sample cout. Set show_rt or show_num to FALSE")
+        warning("Cannot simulataneously annotate peaks with retention time and sample count. Set show_rt or show_num to FALSE")
         show_rt <- FALSE
     }
 
@@ -75,16 +78,16 @@ draw_chromatogram <- function(data = NULL, rt_col_name = NULL, width = 0.1, step
         out <- check_input(data = data, rt_col_name = rt_col_name, sep = sep, plot = F, message = F)
         if (out == FALSE) stop("Data is not formatted correctly. See check_input for details")
         } else {
-        if (class(data) == "GCalign") {
+        if (inherits(data, "GCalign")) {
             if (!(rt_col_name %in% names(data[["aligned"]])))  stop(print(paste(rt_col_name,"is not a valid variable name. Data contains:",paste(names(data[["aligned"]]),collapse = " & "))))
-        } else if (class(data) == "list") {
+        } else if (inherits(data, "list")) {
             out <- check_input(data = data, rt_col_name = rt_col_name, sep = sep, plot = F, message = F)
             if (out == FALSE) stop("Data is malformed. See check_input for details")
         }
     }
     if (is.character(data)) {
 peak_list <- read_peak_list(data, sep, rt_col_name)
-    } else if (class(data) == "GCalign") {
+    } else if (inherits(data, "GCalign")) {
         step <- match.arg(step, choices = c("aligned","input","shifted"))
         if (step == "input") {
             peak_list <- data[["input_list"]]
@@ -100,7 +103,7 @@ peak_list <- read_peak_list(data, sep, rt_col_name)
                 return(x)
         })
         }
-    } else if (class(data) == "list") {
+    } else if (inherits(data, "list")) {
         peak_list <- lapply(data, FUN = function(x) {
             if (any(is.na(rowSums(x)))) {
                 p <- as.vector(which(is.na(rowSums(x))))
@@ -147,7 +150,7 @@ rt_range <- c(0, max(temp, na.rm = T) + 1)
 rt_range <- seq(from = rt_range[1], to = rt_range[2], length = 10000)
 
 
-conc_col_name <- NULL
+#conc_col_name <- NULL
 if (!is.null(conc_col_name)) {
     if (!any(colnames(peak_list[[1]]) %in% conc_col_name)) stop(paste0("can not access '",conc_col_name," '. Ensure this is a valid variable name!"))
     conc_max <- max(as.vector(unlist(lapply(X = peak_list, FUN = conc_max, conc_col_name))))
