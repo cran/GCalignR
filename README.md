@@ -1,6 +1,4 @@
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-
 # GCalignR [<img src="vignettes/GCalignRLogo.png" height="200" align="right"/>](https://github.com/mottensmann/GCalignR)
 
 ![Build
@@ -13,11 +11,11 @@ Status](https://travis-ci.org/mottensmann/GCalignR.svg?branch=master)
 `GCalignR` provides simple functions to align peak lists obtained from
 Gas Chromatography Flame Ionization Detectors (GC-FID) based on
 retention times and plots to evaluate the quality of the alignment. The
-package supports any other one-dimensional chromatograpy technique that
+package supports any other one-dimensional chromatography technique that
 enables the user to create a peak list with at least one column
 specifying retention times as illustrated below.
 
-<img src="vignettes/Two_Chromas_Peak_List.png" style="display: block; margin: auto;" />
+<img src="vignettes/Two_Chromas_Peak_List.png" width="864" style="display: block; margin: auto;" />
 
 As with other software you need to get used to the input format which is
 shown in the illustration:
@@ -30,7 +28,7 @@ shown in the illustration:
 
 ### Installing GCalignR:
 
-The latest release v1.0.3 is on `CRAN`. [Click
+The latest release v1.0.5.2 is on `CRAN`. [Click
 here](https://github.com/mottensmann/GCalignR/releases) for an overview
 of past releases and a brief description of applied changes.
 
@@ -38,7 +36,7 @@ of past releases and a brief description of applied changes.
 install.packages("GCalignR", dependencies = T)
 ```
 
-*The current developmental version 1.0.5 is available on GitHub*
+*The current developmental version is identical to the CRAN release*
 
 ``` r
 if (!("devtools" %in% rownames(installed.packages()))) { 
@@ -59,7 +57,8 @@ browseVignettes("GCalignR")
 
 Basic usage of the main function to align peaks:
 
-- `peak_data`: List of data frames, each corresponding to a sample
+- `data`: Path to a text file (see input format above), or list of data
+  frames, each corresponding to a sample
 - `rt_col_name`: column name of retention time values
 - `max_linear_shift`: Here, no adjustment of systematic linear drift
 - `max_diff_peak2mean`: Here, sort all peaks strictly by retention time
@@ -68,26 +67,26 @@ Basic usage of the main function to align peaks:
 
 ``` r
 library(GCalignR)
-aligned <- align_chromatograms(data = peak_data[1:10], # list of data frame 
+aligned <- align_chromatograms(data = peak_data[1:4], # list of data frame 
                                rt_col_name = "time", # retention time
                                max_linear_shift = 0, #
                                max_diff_peak2mean = 0, 
                                min_diff_peak2peak = 0.08) 
 #> Run GCalignR
-#> Start: 2023-01-26 14:51:17
+#> Start: 2024-01-22 17:51:11
 #> 
-#> Data for 10 samples loaded.
+#> Data for 4 samples loaded.
 #> No reference was specified. Hence, a reference will be selected automatically ...
 #>  
-#> 'M7' was selected on the basis of highest average similarity to all samples (score = 0.05).
-#> Start correcting linear shifts with "M7" as a reference ...
+#> 'C2' was selected on the basis of highest average similarity to all samples (score = 0.06).
+#> Start correcting linear shifts with "C2" as a reference ...
 #> 
 #> Start aligning peaks ...  this might take a while!
 #> 
 #> Merge redundant rows ...
 #>  
 #> Alignment completed!
-#> Time: 2023-01-26 14:51:52
+#> Time: 2024-01-22 17:51:15
 ```
 
 **The parameter values above differ from the defaults shown in the paper
