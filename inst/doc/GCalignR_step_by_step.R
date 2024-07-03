@@ -95,7 +95,7 @@ ggplot(data = scent_nmds,aes(MDS1,MDS2,color = colony)) +
 
 ## -----------------------------------------------------------------------------
 ## colony effect
-vegan::adonis(scent ~ peak_factors$colony,permutations = 999) 
+vegan::adonis2(scent ~ peak_factors$colony,permutations = 999)
 ## no dispersion effect
 anova(vegan::betadisper(vegan::vegdist(scent),peak_factors$colony))
 
